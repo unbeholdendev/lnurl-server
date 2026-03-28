@@ -4,8 +4,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./config.yaml:/app/config.yaml:ro
-      - ./data:/app/data
-      - /path/to/lnd/tls.cert:/certs/tls.cert:ro
-      - /path/to/lnd/admin.macaroon:/macaroons/admin.macaroon:ro
+      - ./docker-data/config.yaml:/app/config.yaml:ro
+      - ./docker-data/data:/app/data
+      - ./docker-data/tls.cert:/certs/tls.cert:ro
+      - ./docker-data/admin.macaroon:/macaroons/admin.macaroon:ro
     restart: unless-stopped
