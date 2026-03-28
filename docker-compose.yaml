@@ -1,0 +1,11 @@
+services:
+  lnurl-server:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./data:/app/data
+      - /path/to/lnd/tls.cert:/certs/tls.cert:ro
+      - /path/to/lnd/admin.macaroon:/macaroons/admin.macaroon:ro
+    restart: unless-stopped

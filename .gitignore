@@ -1,0 +1,11 @@
+# Binary
+lnurl-server
+
+# Config (may contain secrets)
+config.yaml
+
+# State
+data/
+
+# Go
+vendor/
