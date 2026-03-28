@@ -10,12 +10,12 @@ import (
 )
 
 type Config struct {
-	Server    ServerConfig     `yaml:"server"`
-	LND       LNDConfig        `yaml:"lnd"`
-	Ntfy      *NtfyConfig      `yaml:"ntfy,omitempty"`
-	Pay       *PayConfig       `yaml:"pay,omitempty"`
-	Withdraw  *WithdrawSection `yaml:"withdraw,omitempty"`
-	Addresses *AddressSection  `yaml:"addresses,omitempty"`
+	Server    ServerConfig            `yaml:"server"`
+	LND       LNDConfig               `yaml:"lnd"`
+	Ntfy      *NtfyConfig             `yaml:"ntfy,omitempty"`
+	Pay       *PayConfig              `yaml:"pay,omitempty"`
+	Withdraw  []WithdrawConfig        `yaml:"withdraw,omitempty"`
+	Addresses map[string]AddressEntry `yaml:"addresses,omitempty"`
 }
 
 type ServerConfig struct {
@@ -42,11 +42,6 @@ type PayConfig struct {
 	MaxSendable int64  `yaml:"max_sendable"`
 }
 
-type WithdrawSection struct {
-	Domain   string           `yaml:"domain"`
-	Vouchers []WithdrawConfig `yaml:"vouchers"`
-}
-
 type WithdrawConfig struct {
 	// Single voucher fields
 	ID string `yaml:"id,omitempty"`
@@ -54,16 +49,13 @@ type WithdrawConfig struct {
 	Prefix string `yaml:"prefix,omitempty"`
 	Count  int    `yaml:"count,omitempty"`
 	// Common fields
+	Domain      string `yaml:"domain"`
 	Description string `yaml:"description"`
 	Amount      int64  `yaml:"amount"`
 }
 
-type AddressSection struct {
-	Domain string                  `yaml:"domain"`
-	Users  map[string]AddressEntry `yaml:"users"`
-}
-
 type AddressEntry struct {
+	Domain      string `yaml:"domain"`
 	Description string `yaml:"description"`
 	MinSendable int64  `yaml:"min_sendable"`
 	MaxSendable int64  `yaml:"max_sendable"`
@@ -73,6 +65,7 @@ type AddressEntry struct {
 type Voucher struct {
 	ID          string
 	Token       string // URL-safe opaque token derived from ID
+	Domain      string
 	Description string
 	Amount      int64 // millisatoshis
 }
@@ -101,14 +94,14 @@ func Load(path string) (*Config, error) {
 // AllowedDomains returns the set of all configured domains across sections.
 func (c *Config) AllowedDomains() map[string]bool {
 	domains := make(map[string]bool)
-	if c.Pay != nil && c.Pay.Domain != "" {
+	if c.Pay != nil {
 		domains[c.Pay.Domain] = true
 	}
-	if c.Withdraw != nil && c.Withdraw.Domain != "" {
-		domains[c.Withdraw.Domain] = true
+	for _, w := range c.Withdraw {
+		domains[w.Domain] = true
 	}
-	if c.Addresses != nil && c.Addresses.Domain != "" {
-		domains[c.Addresses.Domain] = true
+	for _, addr := range c.Addresses {
+		domains[addr.Domain] = true
 	}
 	return domains
 }
@@ -140,39 +133,35 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("pay.min_sendable must be <= pay.max_sendable")
 		}
 	}
-	if c.Withdraw != nil {
-		if c.Withdraw.Domain == "" {
-			return fmt.Errorf("withdraw.domain is required")
+	for i, w := range c.Withdraw {
+		if w.Domain == "" {
+			return fmt.Errorf("withdraw[%d].domain is required", i)
 		}
-		for i, w := range c.Withdraw.Vouchers {
-			if w.ID == "" && w.Prefix == "" {
-				return fmt.Errorf("withdraw.vouchers[%d]: must have either id or prefix", i)
-			}
-			if w.ID != "" && w.Prefix != "" {
-				return fmt.Errorf("withdraw.vouchers[%d]: cannot have both id and prefix", i)
-			}
-			if w.Prefix != "" && w.Count <= 0 {
-				return fmt.Errorf("withdraw.vouchers[%d]: prefix requires count > 0", i)
-			}
-			if w.Amount <= 0 {
-				return fmt.Errorf("withdraw.vouchers[%d]: amount must be positive", i)
-			}
+		if w.ID == "" && w.Prefix == "" {
+			return fmt.Errorf("withdraw[%d]: must have either id or prefix", i)
+		}
+		if w.ID != "" && w.Prefix != "" {
+			return fmt.Errorf("withdraw[%d]: cannot have both id and prefix", i)
+		}
+		if w.Prefix != "" && w.Count <= 0 {
+			return fmt.Errorf("withdraw[%d]: prefix requires count > 0", i)
+		}
+		if w.Amount <= 0 {
+			return fmt.Errorf("withdraw[%d]: amount must be positive", i)
 		}
 	}
-	if c.Addresses != nil {
-		if c.Addresses.Domain == "" {
-			return fmt.Errorf("addresses.domain is required")
+	for name, addr := range c.Addresses {
+		if addr.Domain == "" {
+			return fmt.Errorf("addresses.%s.domain is required", name)
 		}
-		for name, addr := range c.Addresses.Users {
-			if addr.MinSendable <= 0 {
-				return fmt.Errorf("addresses.users.%s.min_sendable must be positive", name)
-			}
-			if addr.MaxSendable <= 0 {
-				return fmt.Errorf("addresses.users.%s.max_sendable must be positive", name)
-			}
-			if addr.MinSendable > addr.MaxSendable {
-				return fmt.Errorf("addresses.users.%s.min_sendable must be <= max_sendable", name)
-			}
+		if addr.MinSendable <= 0 {
+			return fmt.Errorf("addresses.%s.min_sendable must be positive", name)
+		}
+		if addr.MaxSendable <= 0 {
+			return fmt.Errorf("addresses.%s.max_sendable must be positive", name)
+		}
+		if addr.MinSendable > addr.MaxSendable {
+			return fmt.Errorf("addresses.%s.min_sendable must be <= max_sendable", name)
 		}
 	}
 	return nil
@@ -180,15 +169,13 @@ func (c *Config) Validate() error {
 
 // ExpandVouchers expands batch withdraw entries into individual Voucher structs.
 func (c *Config) ExpandVouchers() []Voucher {
-	if c.Withdraw == nil {
-		return nil
-	}
 	var vouchers []Voucher
-	for _, w := range c.Withdraw.Vouchers {
+	for _, w := range c.Withdraw {
 		if w.ID != "" {
 			vouchers = append(vouchers, Voucher{
 				ID:          w.ID,
 				Token:       tokenForVoucher(w.ID),
+				Domain:      w.Domain,
 				Description: w.Description,
 				Amount:      w.Amount,
 			})
@@ -198,6 +185,7 @@ func (c *Config) ExpandVouchers() []Voucher {
 				vouchers = append(vouchers, Voucher{
 					ID:          id,
 					Token:       tokenForVoucher(id),
+					Domain:      w.Domain,
 					Description: w.Description,
 					Amount:      w.Amount,
 				})

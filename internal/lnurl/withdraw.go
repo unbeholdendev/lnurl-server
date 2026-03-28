@@ -24,7 +24,6 @@ type WithdrawHandler struct {
 	allVouchers []config.Voucher          // ordered list for printing
 	lnd         *lnd.Client
 	ntfy        *notifier.Ntfy
-	domain      string
 	statePath   string
 
 	mu      sync.Mutex
@@ -43,7 +42,7 @@ type stateFile struct {
 }
 
 // NewWithdrawHandler creates a new WithdrawHandler. Returns nil if no vouchers configured.
-func NewWithdrawHandler(vouchers []config.Voucher, lndClient *lnd.Client, ntfy *notifier.Ntfy, domain, statePath string) *WithdrawHandler {
+func NewWithdrawHandler(vouchers []config.Voucher, lndClient *lnd.Client, ntfy *notifier.Ntfy, statePath string) *WithdrawHandler {
 	if len(vouchers) == 0 {
 		return nil
 	}
@@ -61,7 +60,6 @@ func NewWithdrawHandler(vouchers []config.Voucher, lndClient *lnd.Client, ntfy *
 		allVouchers: vouchers,
 		lnd:         lndClient,
 		ntfy:        ntfy,
-		domain:      domain,
 		statePath:   statePath,
 		claimed:     make(map[string]ClaimedInfo),
 		k1s:         make(map[string]string),
@@ -107,7 +105,7 @@ func (h *WithdrawHandler) HandleFirst(w http.ResponseWriter, r *http.Request) {
 	h.mu.Unlock()
 
 	resp := map[string]any{
-		"callback":           fmt.Sprintf("https://%s/lnurl/withdraw/%s/claim", h.domain, token),
+		"callback":           fmt.Sprintf("https://%s/lnurl/withdraw/%s/claim", voucher.Domain, token),
 		"k1":                 k1,
 		"minWithdrawable":    voucher.Amount,
 		"maxWithdrawable":    voucher.Amount,
@@ -235,7 +233,7 @@ func (h *WithdrawHandler) UnclaimedVouchers() []VoucherStatus {
 			result = append(result, VoucherStatus{
 				ID:     v.ID,
 				Amount: v.Amount,
-				URL:    fmt.Sprintf("https://%s/lnurl/withdraw/%s", h.domain, v.Token),
+				URL:    fmt.Sprintf("https://%s/lnurl/withdraw/%s", v.Domain, v.Token),
 			})
 		}
 	}

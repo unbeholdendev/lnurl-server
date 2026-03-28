@@ -15,18 +15,16 @@ import (
 type AddressHandler struct {
 	addresses map[string]config.AddressEntry
 	lnd       *lnd.Client
-	domain    string
 }
 
 // NewAddressHandler creates a new AddressHandler. Returns nil if no addresses configured.
-func NewAddressHandler(cfg *config.AddressSection, lndClient *lnd.Client) *AddressHandler {
-	if cfg == nil || len(cfg.Users) == 0 {
+func NewAddressHandler(addresses map[string]config.AddressEntry, lndClient *lnd.Client) *AddressHandler {
+	if len(addresses) == 0 {
 		return nil
 	}
 	return &AddressHandler{
-		addresses: cfg.Users,
+		addresses: addresses,
 		lnd:       lndClient,
-		domain:    cfg.Domain,
 	}
 }
 
@@ -39,10 +37,10 @@ func (h *AddressHandler) HandleWellKnown(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	metadata := addressMetadata(addr.Description, username, h.domain)
+	metadata := addressMetadata(addr.Description, username, addr.Domain)
 
 	resp := map[string]any{
-		"callback":    fmt.Sprintf("https://%s/.well-known/lnurlp/%s/invoice", h.domain, username),
+		"callback":    fmt.Sprintf("https://%s/.well-known/lnurlp/%s/invoice", addr.Domain, username),
 		"minSendable": addr.MinSendable,
 		"maxSendable": addr.MaxSendable,
 		"metadata":    metadata,
@@ -75,7 +73,7 @@ func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata := addressMetadata(addr.Description, username, h.domain)
+	metadata := addressMetadata(addr.Description, username, addr.Domain)
 	descHash := sha256.Sum256([]byte(metadata))
 
 	bolt11, err := h.lnd.AddInvoice(r.Context(), amountMsat, descHash[:])
@@ -96,9 +94,9 @@ func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 func (h *AddressHandler) MetadataHashes() map[[32]byte]string {
 	result := make(map[[32]byte]string)
 	for username, addr := range h.addresses {
-		metadata := addressMetadata(addr.Description, username, h.domain)
+		metadata := addressMetadata(addr.Description, username, addr.Domain)
 		hash := sha256.Sum256([]byte(metadata))
-		result[hash] = fmt.Sprintf("%s@%s", username, h.domain)
+		result[hash] = fmt.Sprintf("%s@%s", username, addr.Domain)
 	}
 	return result
 }

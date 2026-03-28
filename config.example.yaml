@@ -19,25 +19,31 @@ pay:
   max_sendable: 1000000000
 
 withdraw:
-  domain: "tips.yourdomain.com"
-  vouchers:
-    - id: "tip-001"
-      description: "Restaurant tip"
-      amount: 500000
+  - id: "tip-001"
+    domain: "tips.yourdomain.com"
+    description: "Restaurant tip"
+    amount: 500000
 
-    - id: "tip-002"
-      description: "Restaurant tip"
-      amount: 500000
+  - id: "tip-002"
+    domain: "tips.yourdomain.com"
+    description: "Restaurant tip"
+    amount: 500000
 
-    - prefix: "tip-batch"
-      description: "Restaurant tip"
-      amount: 500000
-      count: 20
+  - prefix: "tip-batch"
+    domain: "tips.otherdomain.com"
+    description: "Restaurant tip"
+    amount: 500000
+    count: 20
 
 addresses:
-  domain: "pay.yourdomain.com"
-  users:
-    satoshi:
-      description: "Satoshi's Lightning Address"
-      min_sendable: 1000
-      max_sendable: 1000000000
+  satoshi:
+    domain: "pay.yourdomain.com"
+    description: "Satoshi's Lightning Address"
+    min_sendable: 1000
+    max_sendable: 1000000000
+
+  hal:
+    domain: "tips.otherdomain.com"
+    description: "Hal's Lightning Address"
+    min_sendable: 1000
+    max_sendable: 1000000000

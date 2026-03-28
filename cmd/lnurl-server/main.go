@@ -39,16 +39,10 @@ func main() {
 
 	// Create handlers
 	payHandler := lnurl.NewPayHandler(cfg.Pay, lndClient)
-
-	var withdrawDomain string
-	if cfg.Withdraw != nil {
-		withdrawDomain = cfg.Withdraw.Domain
-	}
 	withdrawHandler := lnurl.NewWithdrawHandler(
 		cfg.ExpandVouchers(),
 		lndClient,
 		ntfy,
-		withdrawDomain,
 		"data/state.json",
 	)
 	addressHandler := lnurl.NewAddressHandler(cfg.Addresses, lndClient)
