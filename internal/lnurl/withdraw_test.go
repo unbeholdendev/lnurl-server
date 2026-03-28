@@ -54,3 +54,70 @@ func TestSaveStateConcurrency(t *testing.T) {
 		t.Fatal("state file is empty")
 	}
 }
+
+func TestK1Expiration(t *testing.T) {
+	dir := t.TempDir()
+	statePath := filepath.Join(dir, "state.json")
+
+	h := NewWithdrawHandler(
+		[]config.Voucher{
+			{ID: "test-001", Token: "abc123", Domain: "example.com", Description: "test", Amount: 1000},
+		},
+		nil, nil, statePath,
+	)
+
+	// Manually insert an expired k1
+	h.mu.Lock()
+	h.k1s["expired-k1"] = k1Entry{
+		voucherID: "test-001",
+		createdAt: time.Now().Add(-10 * time.Minute),
+	}
+	h.k1s["fresh-k1"] = k1Entry{
+		voucherID: "test-001",
+		createdAt: time.Now(),
+	}
+	h.mu.Unlock()
+
+	h.cleanupExpiredK1s()
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if _, exists := h.k1s["expired-k1"]; exists {
+		t.Error("expired k1 should have been removed")
+	}
+	if _, exists := h.k1s["fresh-k1"]; !exists {
+		t.Error("fresh k1 should still exist")
+	}
+}
+
+func TestK1PerVoucherEviction(t *testing.T) {
+	dir := t.TempDir()
+	statePath := filepath.Join(dir, "state.json")
+
+	h := NewWithdrawHandler(
+		[]config.Voucher{
+			{ID: "test-001", Token: "abc123", Domain: "example.com", Description: "test", Amount: 1000},
+		},
+		nil, nil, statePath,
+	)
+
+	// Add a k1 for the voucher
+	h.mu.Lock()
+	h.k1s["old-k1"] = k1Entry{voucherID: "test-001", createdAt: time.Now().Add(-1 * time.Minute)}
+	h.voucherToK1["test-001"] = "old-k1"
+	h.mu.Unlock()
+
+	// Issue a new k1 — should evict the old one
+	newK1 := h.addK1("test-001")
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if _, exists := h.k1s["old-k1"]; exists {
+		t.Error("old k1 for same voucher should have been evicted")
+	}
+	if _, exists := h.k1s[newK1]; !exists {
+		t.Error("new k1 should exist")
+	}
+}

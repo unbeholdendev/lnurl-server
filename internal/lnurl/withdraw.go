@@ -1,6 +1,7 @@
 package lnurl
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -17,6 +18,13 @@ import (
 	"lnurl-server/internal/notifier"
 )
 
+const k1TTL = 5 * time.Minute
+
+type k1Entry struct {
+	voucherID string
+	createdAt time.Time
+}
+
 // WithdrawHandler handles LNURL-withdraw protocol requests.
 type WithdrawHandler struct {
 	vouchers    map[string]config.Voucher // id -> voucher
@@ -26,9 +34,10 @@ type WithdrawHandler struct {
 	ntfy        *notifier.Ntfy
 	statePath   string
 
-	mu      sync.Mutex
-	claimed map[string]ClaimedInfo // id -> claim info
-	k1s     map[string]string      // k1 -> voucher id
+	mu          sync.Mutex
+	claimed     map[string]ClaimedInfo // id -> claim info
+	k1s         map[string]k1Entry     // k1 -> entry with TTL
+	voucherToK1 map[string]string      // voucher id -> active k1 (for eviction)
 }
 
 // ClaimedInfo records when a voucher was claimed.
@@ -62,7 +71,8 @@ func NewWithdrawHandler(vouchers []config.Voucher, lndClient *lnd.Client, ntfy *
 		ntfy:        ntfy,
 		statePath:   statePath,
 		claimed:     make(map[string]ClaimedInfo),
-		k1s:         make(map[string]string),
+		k1s:         make(map[string]k1Entry),
+		voucherToK1: make(map[string]string),
 	}
 
 	if err := h.loadState(); err != nil {
@@ -91,18 +101,8 @@ func (h *WithdrawHandler) HandleFirst(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate k1
-	k1Bytes := make([]byte, 32)
-	if _, err := rand.Read(k1Bytes); err != nil {
-		log.Printf("withdraw: failed to generate k1: %v", err)
-		writeError(w, "internal error")
-		return
-	}
-	k1 := hex.EncodeToString(k1Bytes)
-
-	h.mu.Lock()
-	h.k1s[k1] = id
-	h.mu.Unlock()
+	// Generate k1 (evicts any previous k1 for this voucher)
+	k1 := h.addK1(id)
 
 	resp := map[string]any{
 		"callback":           fmt.Sprintf("https://%s/lnurl/withdraw/%s/claim", voucher.Domain, token),
@@ -135,10 +135,19 @@ func (h *WithdrawHandler) HandleClaim(w http.ResponseWriter, r *http.Request) {
 
 	h.mu.Lock()
 	// Validate k1
-	expectedID, k1Valid := h.k1s[k1]
-	if !k1Valid || expectedID != id {
+	entry, k1Valid := h.k1s[k1]
+	if !k1Valid || entry.voucherID != id {
 		h.mu.Unlock()
 		writeError(w, "invalid k1")
+		return
+	}
+	if time.Since(entry.createdAt) > k1TTL {
+		delete(h.k1s, k1)
+		if h.voucherToK1[entry.voucherID] == k1 {
+			delete(h.voucherToK1, entry.voucherID)
+		}
+		h.mu.Unlock()
+		writeError(w, "k1 expired, please try again")
 		return
 	}
 	// Check not already claimed
@@ -153,6 +162,7 @@ func (h *WithdrawHandler) HandleClaim(w http.ResponseWriter, r *http.Request) {
 		AmountMsat: voucher.Amount,
 	}
 	delete(h.k1s, k1)
+	delete(h.voucherToK1, id)
 	h.mu.Unlock()
 
 	// Pay the invoice (max fee: 1% of amount or 10 sats, whichever is higher)
@@ -180,6 +190,57 @@ func (h *WithdrawHandler) HandleClaim(w http.ResponseWriter, r *http.Request) {
 		"status": "OK",
 	}
 	writeJSON(w, resp)
+}
+
+func (h *WithdrawHandler) addK1(voucherID string) string {
+	k1Bytes := make([]byte, 32)
+	if _, err := rand.Read(k1Bytes); err != nil {
+		panic(fmt.Sprintf("crypto/rand failed: %v", err))
+	}
+	k1 := hex.EncodeToString(k1Bytes)
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if oldK1, exists := h.voucherToK1[voucherID]; exists {
+		delete(h.k1s, oldK1)
+	}
+
+	h.k1s[k1] = k1Entry{
+		voucherID: voucherID,
+		createdAt: time.Now(),
+	}
+	h.voucherToK1[voucherID] = k1
+	return k1
+}
+
+func (h *WithdrawHandler) cleanupExpiredK1s() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	now := time.Now()
+	for k1, entry := range h.k1s {
+		if now.Sub(entry.createdAt) > k1TTL {
+			delete(h.k1s, k1)
+			if h.voucherToK1[entry.voucherID] == k1 {
+				delete(h.voucherToK1, entry.voucherID)
+			}
+		}
+	}
+}
+
+// StartCleanup runs periodic cleanup of expired k1 entries.
+func (h *WithdrawHandler) StartCleanup(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			h.cleanupExpiredK1s()
+		}
+	}
 }
 
 func (h *WithdrawHandler) loadState() error {

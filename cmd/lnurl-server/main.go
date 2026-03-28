@@ -59,6 +59,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	if withdrawHandler != nil {
+		go withdrawHandler.StartCleanup(ctx)
+	}
+
 	go runInvoiceSubscriber(ctx, lndClient, ntfy)
 
 	// Start HTTP server
