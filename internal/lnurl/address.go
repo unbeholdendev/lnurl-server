@@ -2,6 +2,7 @@ package lnurl
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -120,5 +121,14 @@ func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 }
 
 func addressMetadata(description, username, host string) string {
-	return fmt.Sprintf(`[["text/plain","%s"],["text/identifier","%s@%s"]]`, description, username, host)
+	metadata := [][]string{
+		{"text/plain", description},
+		{"text/identifier", fmt.Sprintf("%s@%s", username, host)},
+	}
+	data, err := json.Marshal(metadata)
+	if err != nil {
+		// This should never happen with string data
+		return fmt.Sprintf(`[["text/plain","%s"],["text/identifier","%s@%s"]]`, description, username, host)
+	}
+	return string(data)
 }
