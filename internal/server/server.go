@@ -81,6 +81,7 @@ func (s *Server) domainValidation(next http.Handler) http.Handler {
 // ListenAndServe starts the HTTP server.
 func (s *Server) ListenAndServe() error {
 	handler := s.domainValidation(s.mux)
+	handler = requestLogging(log.Default(), handler)
 	handler = s.rl.middleware(handler)
 
 	log.Printf("starting server on %s", listenAddr)
