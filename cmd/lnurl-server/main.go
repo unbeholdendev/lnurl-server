@@ -29,7 +29,7 @@ func main() {
 	log.Printf("config loaded from %s", *configPath)
 
 	// Connect to LND
-	lndClient, err := lnd.Connect(cfg.LND.Host, cfg.LND.TLSCertPath, cfg.LND.MacaroonPath)
+	lndClient, err := lnd.Connect(cfg.LND.Host)
 	if err != nil {
 		log.Fatalf("failed to connect to lnd: %v", err)
 	}
@@ -97,17 +97,35 @@ func main() {
 }
 
 func runInvoiceSubscriber(ctx context.Context, lndClient *lnd.Client, ntfy *notifier.Ntfy) {
+	backoff := 1 * time.Second
+	const maxBackoff = 30 * time.Second
+
 	for {
 		log.Println("starting invoice subscriber...")
+		start := time.Now()
 		err := lndClient.SubscribeInvoices(ctx, func(amountMsat int64, descriptionHash []byte, memo string) {
 			amountSats := amountMsat / 1000
 			log.Printf("invoice settled: %d sats", amountSats)
-			ntfy.NotifyPayment(amountSats)
+			ntfy.NotifyPayment(amountSats, memo)
 		})
 
 		if ctx.Err() != nil {
 			return // context cancelled, shutting down
 		}
-		log.Printf("invoice subscriber disconnected: %v, reconnecting...", err)
+
+		// Reset backoff if the connection lasted more than a minute
+		if time.Since(start) > time.Minute {
+			backoff = 1 * time.Second
+		}
+
+		log.Printf("invoice subscriber disconnected: %v, reconnecting in %s...", err, backoff)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+
+		backoff = min(backoff*2, maxBackoff)
 	}
 }

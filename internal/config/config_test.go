@@ -10,8 +10,6 @@ func TestLoad_MinimalConfig(t *testing.T) {
 	yaml := `
 lnd:
   host: "localhost:10009"
-  tls_cert_path: "/tmp/tls.cert"
-  macaroon_path: "/tmp/admin.macaroon"
 `
 	path := writeTestConfig(t, yaml)
 	cfg, err := Load(path)
@@ -27,8 +25,6 @@ func TestLoad_MissingRequiredFields(t *testing.T) {
 	yaml := `
 lnd:
   host: ""
-  tls_cert_path: "/tmp/tls.cert"
-  macaroon_path: "/tmp/admin.macaroon"
 `
 	path := writeTestConfig(t, yaml)
 	_, err := Load(path)

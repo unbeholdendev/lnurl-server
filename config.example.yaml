@@ -1,7 +1,5 @@
 lnd:
   host: "lnd:10009"
-  tls_cert_path: "/certs/tls.cert"
-  macaroon_path: "/macaroons/admin.macaroon"
 
 ntfy:
   url: "https://ntfy.yourdomain.com"

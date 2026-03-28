@@ -43,11 +43,14 @@ func (n *Ntfy) NotifyInvoiceCreated(amountSats int64, address string) {
 }
 
 // NotifyPayment sends a notification for a settled payment.
-func (n *Ntfy) NotifyPayment(amountSats int64) {
+func (n *Ntfy) NotifyPayment(amountSats int64, memo string) {
 	if n == nil {
 		return
 	}
 	body := fmt.Sprintf("Received %d sats", amountSats)
+	if memo != "" {
+		body = fmt.Sprintf("Received %d sats: %s", amountSats, memo)
+	}
 	n.send("Payment received", body)
 }
 

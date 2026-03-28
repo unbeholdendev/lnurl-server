@@ -17,9 +17,7 @@ type Config struct {
 }
 
 type LNDConfig struct {
-	Host         string `yaml:"host"`
-	TLSCertPath  string `yaml:"tls_cert_path"`
-	MacaroonPath string `yaml:"macaroon_path"`
+	Host string `yaml:"host"`
 }
 
 type NtfyConfig struct {
@@ -92,12 +90,6 @@ func (c *Config) AllowedDomains() map[string]bool {
 func (c *Config) Validate() error {
 	if c.LND.Host == "" {
 		return fmt.Errorf("lnd.host is required")
-	}
-	if c.LND.TLSCertPath == "" {
-		return fmt.Errorf("lnd.tls_cert_path is required")
-	}
-	if c.LND.MacaroonPath == "" {
-		return fmt.Errorf("lnd.macaroon_path is required")
 	}
 	for i, w := range c.Withdraw {
 		if w.Domain == "" {

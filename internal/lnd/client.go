@@ -14,6 +14,11 @@ import (
 	"gopkg.in/macaroon.v2"
 )
 
+const (
+	tlsCertPath  = "/certs/tls.cert"
+	macaroonPath = "/macaroons/admin.macaroon"
+)
+
 // Client wraps the LND gRPC connection and exposes the methods we need.
 type Client struct {
 	conn      *grpc.ClientConn
@@ -22,7 +27,7 @@ type Client struct {
 }
 
 // Connect establishes a gRPC connection to LND using TLS and macaroon auth.
-func Connect(host, tlsCertPath, macaroonPath string) (*Client, error) {
+func Connect(host string) (*Client, error) {
 	// Load TLS cert
 	tlsCert, err := os.ReadFile(tlsCertPath)
 	if err != nil {

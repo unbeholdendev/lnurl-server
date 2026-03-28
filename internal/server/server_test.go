@@ -10,7 +10,7 @@ import (
 
 func TestDomainValidation_MatchingHostAllowed(t *testing.T) {
 	cfg := &config.Config{
-		LND: config.LNDConfig{Host: "localhost:10009", TLSCertPath: "/tmp/tls.cert", MacaroonPath: "/tmp/mac"},
+		LND: config.LNDConfig{Host: "localhost:10009"},
 		Addresses: map[string]config.AddressEntry{
 			"test": {Domain: "pay.example.com", MinSendable: 1000, MaxSendable: 1000000, Description: "test"},
 		},
@@ -33,7 +33,7 @@ func TestDomainValidation_MatchingHostAllowed(t *testing.T) {
 
 func TestDomainValidation_UnknownHostReturns404(t *testing.T) {
 	cfg := &config.Config{
-		LND: config.LNDConfig{Host: "localhost:10009", TLSCertPath: "/tmp/tls.cert", MacaroonPath: "/tmp/mac"},
+		LND: config.LNDConfig{Host: "localhost:10009"},
 		Addresses: map[string]config.AddressEntry{
 			"test": {Domain: "pay.example.com", MinSendable: 1000, MaxSendable: 1000000, Description: "test"},
 		},
@@ -56,7 +56,7 @@ func TestDomainValidation_UnknownHostReturns404(t *testing.T) {
 
 func TestDomainValidation_XForwardedHostOverridesHost(t *testing.T) {
 	cfg := &config.Config{
-		LND: config.LNDConfig{Host: "localhost:10009", TLSCertPath: "/tmp/tls.cert", MacaroonPath: "/tmp/mac"},
+		LND: config.LNDConfig{Host: "localhost:10009"},
 		Addresses: map[string]config.AddressEntry{
 			"test": {Domain: "pay.example.com", MinSendable: 1000, MaxSendable: 1000000, Description: "test"},
 		},
