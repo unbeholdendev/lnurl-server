@@ -7,7 +7,7 @@ import (
 )
 
 func TestRateLimiter_AllowsNormalTraffic(t *testing.T) {
-	rl := newRateLimiter(10, 20) // 10 req/s, burst 20
+	rl := newRateLimiter(10, 20, false) // 10 req/s, burst 20
 	handler := rl.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -24,7 +24,7 @@ func TestRateLimiter_AllowsNormalTraffic(t *testing.T) {
 }
 
 func TestRateLimiter_BlocksExcessiveTraffic(t *testing.T) {
-	rl := newRateLimiter(1, 1) // 1 req/s, burst 1
+	rl := newRateLimiter(1, 1, false) // 1 req/s, burst 1
 	handler := rl.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -45,7 +45,7 @@ func TestRateLimiter_BlocksExcessiveTraffic(t *testing.T) {
 }
 
 func TestRateLimiter_PerIPIsolation(t *testing.T) {
-	rl := newRateLimiter(1, 1)
+	rl := newRateLimiter(1, 1, false)
 	handler := rl.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -65,7 +65,7 @@ func TestRateLimiter_PerIPIsolation(t *testing.T) {
 }
 
 func TestRateLimiter_XForwardedFor(t *testing.T) {
-	rl := newRateLimiter(1, 1)
+	rl := newRateLimiter(1, 1, true)
 	handler := rl.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))

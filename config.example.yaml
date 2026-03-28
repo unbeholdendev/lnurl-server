@@ -3,6 +3,11 @@ lnd:
   tls_cert_path: "/certs/tls.cert"
   macaroon_path: "/macaroons/admin.macaroon"
 
+# Trust X-Forwarded-Host and X-Forwarded-For headers from reverse proxy.
+# Only enable if this server runs behind a proxy that sets these headers.
+# Default: false
+trust_proxy: false
+
 ntfy:
   url: "https://ntfy.yourdomain.com"
   topic: "lightning-payments"

@@ -25,11 +25,11 @@ func (w *statusResponseWriter) statusCode() int {
 }
 
 // requestLogging returns middleware that logs each request's method, path, status, duration, and client IP.
-func requestLogging(logger *log.Logger, next http.Handler) http.Handler {
+func requestLogging(logger *log.Logger, trustProxy bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		sw := &statusResponseWriter{ResponseWriter: w}
 		next.ServeHTTP(sw, r)
-		logger.Printf("%s %s %d %s %s", r.Method, r.URL.Path, sw.statusCode(), time.Since(start).Round(time.Millisecond), clientIP(r))
+		logger.Printf("%s %s %d %s %s", r.Method, r.URL.Path, sw.statusCode(), time.Since(start).Round(time.Millisecond), clientIP(r, trustProxy))
 	})
 }
