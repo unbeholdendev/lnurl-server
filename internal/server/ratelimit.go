@@ -80,10 +80,8 @@ func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 // Uses X-Forwarded-For if present (set by reverse proxy), otherwise RemoteAddr.
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if i := strings.IndexByte(xff, ','); i != -1 {
-			return strings.TrimSpace(xff[:i])
-		}
-		return strings.TrimSpace(xff)
+		first, _, _ := strings.Cut(xff, ",")
+		return strings.TrimSpace(first)
 	}
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
