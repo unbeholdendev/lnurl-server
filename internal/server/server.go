@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"sync"
@@ -13,13 +14,14 @@ const listenAddr = "0.0.0.0:8080"
 
 // Server is the main HTTP server.
 type Server struct {
-	cfg       *config.Config
-	mux       *http.ServeMux
-	withdraw  *lnurl.WithdrawHandler
-	address   *lnurl.AddressHandler
-	rl        *rateLimiter
-	done      chan struct{}
-	closeOnce sync.Once
+	cfg        *config.Config
+	mux        *http.ServeMux
+	withdraw   *lnurl.WithdrawHandler
+	address    *lnurl.AddressHandler
+	rl         *rateLimiter
+	done       chan struct{}
+	closeOnce  sync.Once
+	httpServer *http.Server
 }
 
 // New creates a new Server with all routes registered.
@@ -80,14 +82,29 @@ func (s *Server) domainValidation(next http.Handler) http.Handler {
 	})
 }
 
-// ListenAndServe starts the HTTP server.
+// ListenAndServe starts the HTTP server. The server can be stopped
+// by calling Shutdown.
 func (s *Server) ListenAndServe() error {
 	handler := s.domainValidation(s.mux)
 	handler = requestLogging(log.Default(), s.cfg.TrustProxy, handler)
 	handler = s.rl.middleware(handler)
 
+	s.httpServer = &http.Server{
+		Addr:    listenAddr,
+		Handler: handler,
+	}
+
 	log.Printf("starting server on %s", listenAddr)
-	return http.ListenAndServe(listenAddr, handler)
+	return s.httpServer.ListenAndServe()
+}
+
+// Shutdown gracefully shuts down the HTTP server and stops background goroutines.
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.Close()
+	if s.httpServer != nil {
+		return s.httpServer.Shutdown(ctx)
+	}
+	return nil
 }
 
 // Close stops background goroutines. Safe to call multiple times.

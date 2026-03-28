@@ -4,9 +4,11 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"lnurl-server/internal/config"
 	"lnurl-server/internal/lnd"
@@ -68,19 +70,30 @@ func main() {
 	// Start HTTP server
 	srv := server.New(cfg, withdrawHandler, addressHandler)
 
-	// Handle shutdown
+	// Handle shutdown signals
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		<-sigCh
-		log.Println("shutting down...")
+		sig := <-sigCh
+		log.Printf("received signal %v, shutting down...", sig)
+
+		// Cancel background goroutines
 		cancel()
-		os.Exit(0)
+
+		// Give in-flight requests up to 30 seconds to complete
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer shutdownCancel()
+
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("shutdown error: %v", err)
+		}
 	}()
 
-	if err := srv.ListenAndServe(); err != nil {
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server error: %v", err)
 	}
+
+	log.Println("server stopped")
 }
 
 func runInvoiceSubscriber(ctx context.Context, lndClient *lnd.Client, ntfy *notifier.Ntfy) {
