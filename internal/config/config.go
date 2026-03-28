@@ -80,7 +80,7 @@ type Voucher struct {
 // tokenForVoucher generates a deterministic, unguessable URL token from a voucher ID.
 func tokenForVoucher(id string) string {
 	hash := sha256.Sum256([]byte(id))
-	return hex.EncodeToString(hash[:16]) // 32 hex chars, 128 bits
+	return hex.EncodeToString(hash[:6]) // 12 hex chars, 48 bits
 }
 
 func Load(path string) (*Config, error) {
