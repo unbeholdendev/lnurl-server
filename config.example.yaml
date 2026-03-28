@@ -1,7 +1,3 @@
-server:
-  host: "0.0.0.0"
-  port: 8080
-
 lnd:
   host: "lnd:10009"
   tls_cert_path: "/certs/tls.cert"

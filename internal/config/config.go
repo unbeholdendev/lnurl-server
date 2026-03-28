@@ -10,16 +10,10 @@ import (
 )
 
 type Config struct {
-	Server    ServerConfig            `yaml:"server"`
 	LND       LNDConfig               `yaml:"lnd"`
 	Ntfy      *NtfyConfig             `yaml:"ntfy,omitempty"`
 	Withdraw  []WithdrawConfig        `yaml:"withdraw,omitempty"`
 	Addresses map[string]AddressEntry `yaml:"addresses,omitempty"`
-}
-
-type ServerConfig struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
 }
 
 type LNDConfig struct {
@@ -96,9 +90,6 @@ func (c *Config) AllowedDomains() map[string]bool {
 }
 
 func (c *Config) Validate() error {
-	if c.Server.Port == 0 {
-		return fmt.Errorf("server.port is required")
-	}
 	if c.LND.Host == "" {
 		return fmt.Errorf("lnd.host is required")
 	}

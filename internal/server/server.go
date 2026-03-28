@@ -1,13 +1,14 @@
 package server
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
 	"lnurl-server/internal/config"
 	"lnurl-server/internal/lnurl"
 )
+
+const listenAddr = "0.0.0.0:8080"
 
 // Server is the main HTTP server.
 type Server struct {
@@ -71,7 +72,6 @@ func (s *Server) domainValidation(next http.Handler) http.Handler {
 func (s *Server) ListenAndServe() error {
 	handler := s.domainValidation(s.mux)
 
-	addr := fmt.Sprintf("%s:%d", s.cfg.Server.Host, s.cfg.Server.Port)
-	log.Printf("starting server on %s", addr)
-	return http.ListenAndServe(addr, handler)
+	log.Printf("starting server on %s", listenAddr)
+	return http.ListenAndServe(listenAddr, handler)
 }
