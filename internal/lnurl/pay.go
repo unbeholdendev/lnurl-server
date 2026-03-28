@@ -35,7 +35,7 @@ func NewPayHandler(cfg *config.PayConfig, lndClient *lnd.Client) *PayHandler {
 func (h *PayHandler) HandleFirst(w http.ResponseWriter, r *http.Request) {
 	metadata := h.metadata()
 
-	resp := map[string]interface{}{
+	resp := map[string]any{
 		"callback":    fmt.Sprintf("https://%s/lnurl/pay/invoice", h.domain),
 		"minSendable": h.cfg.MinSendable,
 		"maxSendable": h.cfg.MaxSendable,
@@ -70,9 +70,9 @@ func (h *PayHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := map[string]interface{}{
+	resp := map[string]any{
 		"pr":     bolt11,
-		"routes": []interface{}{},
+		"routes": []any{},
 	}
 	writeJSON(w, resp)
 }
@@ -95,7 +95,7 @@ func requestHost(r *http.Request) string {
 	return r.Host
 }
 
-func writeJSON(w http.ResponseWriter, v interface{}) {
+func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(v)
 }

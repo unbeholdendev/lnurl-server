@@ -41,7 +41,7 @@ func (h *AddressHandler) HandleWellKnown(w http.ResponseWriter, r *http.Request)
 
 	metadata := addressMetadata(addr.Description, username, h.domain)
 
-	resp := map[string]interface{}{
+	resp := map[string]any{
 		"callback":    fmt.Sprintf("https://%s/.well-known/lnurlp/%s/invoice", h.domain, username),
 		"minSendable": addr.MinSendable,
 		"maxSendable": addr.MaxSendable,
@@ -85,9 +85,9 @@ func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := map[string]interface{}{
+	resp := map[string]any{
 		"pr":     bolt11,
-		"routes": []interface{}{},
+		"routes": []any{},
 	}
 	writeJSON(w, resp)
 }

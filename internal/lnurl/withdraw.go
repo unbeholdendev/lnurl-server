@@ -106,7 +106,7 @@ func (h *WithdrawHandler) HandleFirst(w http.ResponseWriter, r *http.Request) {
 	h.k1s[k1] = id
 	h.mu.Unlock()
 
-	resp := map[string]interface{}{
+	resp := map[string]any{
 		"callback":           fmt.Sprintf("https://%s/lnurl/withdraw/%s/claim", h.domain, token),
 		"k1":                 k1,
 		"minWithdrawable":    voucher.Amount,
@@ -158,10 +158,7 @@ func (h *WithdrawHandler) HandleClaim(w http.ResponseWriter, r *http.Request) {
 	h.mu.Unlock()
 
 	// Pay the invoice (max fee: 1% of amount or 10 sats, whichever is higher)
-	maxFeeSat := voucher.Amount / 100000 // 1% in sats
-	if maxFeeSat < 10 {
-		maxFeeSat = 10
-	}
+	maxFeeSat := max(voucher.Amount/100000, 10) // 1% in sats, minimum 10
 	_, err := h.lnd.SendPayment(r.Context(), pr, maxFeeSat)
 	if err != nil {
 		// Undo the claim on failure
