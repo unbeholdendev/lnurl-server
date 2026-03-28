@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 	"net/http"
+	"sync"
 
 	"lnurl-server/internal/config"
 	"lnurl-server/internal/lnurl"
@@ -12,19 +13,28 @@ const listenAddr = "0.0.0.0:8080"
 
 // Server is the main HTTP server.
 type Server struct {
-	cfg      *config.Config
-	mux      *http.ServeMux
-	withdraw *lnurl.WithdrawHandler
-	address  *lnurl.AddressHandler
+	cfg       *config.Config
+	mux       *http.ServeMux
+	withdraw  *lnurl.WithdrawHandler
+	address   *lnurl.AddressHandler
+	rl        *rateLimiter
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 // New creates a new Server with all routes registered.
 func New(cfg *config.Config, withdraw *lnurl.WithdrawHandler, address *lnurl.AddressHandler) *Server {
+	done := make(chan struct{})
+	rl := newRateLimiter(10, 20) // 10 requests/sec per IP, burst of 20
+	go rl.startCleanup(done)
+
 	s := &Server{
 		cfg:      cfg,
 		mux:      http.NewServeMux(),
 		withdraw: withdraw,
 		address:  address,
+		rl:       rl,
+		done:     done,
 	}
 	s.registerRoutes()
 	return s
@@ -71,7 +81,15 @@ func (s *Server) domainValidation(next http.Handler) http.Handler {
 // ListenAndServe starts the HTTP server.
 func (s *Server) ListenAndServe() error {
 	handler := s.domainValidation(s.mux)
+	handler = s.rl.middleware(handler)
 
 	log.Printf("starting server on %s", listenAddr)
 	return http.ListenAndServe(listenAddr, handler)
+}
+
+// Close stops background goroutines. Safe to call multiple times.
+func (s *Server) Close() {
+	s.closeOnce.Do(func() {
+		close(s.done)
+	})
 }
