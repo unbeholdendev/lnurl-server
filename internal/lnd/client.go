@@ -73,7 +73,6 @@ func (c *Client) AddInvoice(ctx context.Context, amountMsat int64, descriptionHa
 	resp, err := c.lightning.AddInvoice(ctx, &lnrpc.Invoice{
 		ValueMsat:       amountMsat,
 		DescriptionHash: descriptionHash,
-		Expiry:          3600, // 1 hour
 	})
 	if err != nil {
 		return "", fmt.Errorf("add invoice: %w", err)

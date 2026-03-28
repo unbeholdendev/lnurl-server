@@ -19,11 +19,13 @@ import (
 
 // WithdrawHandler handles LNURL-withdraw protocol requests.
 type WithdrawHandler struct {
-	vouchers  map[string]config.Voucher // id -> voucher
-	tokenToID map[string]string         // token -> id (for URL lookup)
-	lnd       *lnd.Client
-	ntfy      *notifier.Ntfy
-	statePath string
+	vouchers    map[string]config.Voucher // id -> voucher
+	tokenToID   map[string]string         // token -> id (for URL lookup)
+	allVouchers []config.Voucher          // ordered list for printing
+	lnd         *lnd.Client
+	ntfy        *notifier.Ntfy
+	domain      string
+	statePath   string
 
 	mu      sync.Mutex
 	claimed map[string]ClaimedInfo // id -> claim info
@@ -41,7 +43,7 @@ type stateFile struct {
 }
 
 // NewWithdrawHandler creates a new WithdrawHandler. Returns nil if no vouchers configured.
-func NewWithdrawHandler(vouchers []config.Voucher, lndClient *lnd.Client, ntfy *notifier.Ntfy, statePath string) *WithdrawHandler {
+func NewWithdrawHandler(vouchers []config.Voucher, lndClient *lnd.Client, ntfy *notifier.Ntfy, domain, statePath string) *WithdrawHandler {
 	if len(vouchers) == 0 {
 		return nil
 	}
@@ -54,13 +56,15 @@ func NewWithdrawHandler(vouchers []config.Voucher, lndClient *lnd.Client, ntfy *
 	}
 
 	h := &WithdrawHandler{
-		vouchers:  voucherMap,
-		tokenToID: tokenToID,
-		lnd:       lndClient,
-		ntfy:      ntfy,
-		statePath: statePath,
-		claimed:   make(map[string]ClaimedInfo),
-		k1s:       make(map[string]string),
+		vouchers:    voucherMap,
+		tokenToID:   tokenToID,
+		allVouchers: vouchers,
+		lnd:         lndClient,
+		ntfy:        ntfy,
+		domain:      domain,
+		statePath:   statePath,
+		claimed:     make(map[string]ClaimedInfo),
+		k1s:         make(map[string]string),
 	}
 
 	if err := h.loadState(); err != nil {
@@ -102,9 +106,8 @@ func (h *WithdrawHandler) HandleFirst(w http.ResponseWriter, r *http.Request) {
 	h.k1s[k1] = id
 	h.mu.Unlock()
 
-	host := requestHost(r)
 	resp := map[string]interface{}{
-		"callback":           fmt.Sprintf("https://%s/lnurl/withdraw/%s/claim", host, token),
+		"callback":           fmt.Sprintf("https://%s/lnurl/withdraw/%s/claim", h.domain, token),
 		"k1":                 k1,
 		"minWithdrawable":    voucher.Amount,
 		"maxWithdrawable":    voucher.Amount,
@@ -222,4 +225,29 @@ func (h *WithdrawHandler) saveState() error {
 		return err
 	}
 	return os.Rename(tmp, h.statePath)
+}
+
+// UnclaimedVouchers returns all vouchers that have not been claimed, with their full URLs.
+func (h *WithdrawHandler) UnclaimedVouchers() []VoucherStatus {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	var result []VoucherStatus
+	for _, v := range h.allVouchers {
+		if _, claimed := h.claimed[v.ID]; !claimed {
+			result = append(result, VoucherStatus{
+				ID:     v.ID,
+				Amount: v.Amount,
+				URL:    fmt.Sprintf("https://%s/lnurl/withdraw/%s", h.domain, v.Token),
+			})
+		}
+	}
+	return result
+}
+
+// VoucherStatus represents an unclaimed voucher with its public URL.
+type VoucherStatus struct {
+	ID     string
+	Amount int64
+	URL    string
 }

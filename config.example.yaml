@@ -1,8 +1,6 @@
 server:
   host: "0.0.0.0"
   port: 8080
-  allowed_domains:
-    - "pay.yourdomain.com"
 
 lnd:
   host: "lnd:10009"
@@ -15,26 +13,31 @@ ntfy:
   token: ""
 
 pay:
+  domain: "pay.yourdomain.com"
   description: "Pay me via Lightning"
   min_sendable: 1000
   max_sendable: 1000000000
 
 withdraw:
-  - id: "tip-001"
-    description: "Restaurant tip"
-    amount: 500000
+  domain: "tips.yourdomain.com"
+  vouchers:
+    - id: "tip-001"
+      description: "Restaurant tip"
+      amount: 500000
 
-  - id: "tip-002"
-    description: "Restaurant tip"
-    amount: 500000
+    - id: "tip-002"
+      description: "Restaurant tip"
+      amount: 500000
 
-  - prefix: "tip-batch"
-    description: "Restaurant tip"
-    amount: 500000
-    count: 20
+    - prefix: "tip-batch"
+      description: "Restaurant tip"
+      amount: 500000
+      count: 20
 
 addresses:
-  satoshi:
-    description: "Satoshi's Lightning Address"
-    min_sendable: 1000
-    max_sendable: 1000000000
+  domain: "pay.yourdomain.com"
+  users:
+    satoshi:
+      description: "Satoshi's Lightning Address"
+      min_sendable: 1000
+      max_sendable: 1000000000

@@ -14,8 +14,9 @@ import (
 
 // PayHandler handles LNURL-pay protocol requests.
 type PayHandler struct {
-	cfg *config.PayConfig
-	lnd *lnd.Client
+	cfg    *config.PayConfig
+	lnd    *lnd.Client
+	domain string
 }
 
 // NewPayHandler creates a new PayHandler. Returns nil if pay is not configured.
@@ -24,18 +25,18 @@ func NewPayHandler(cfg *config.PayConfig, lndClient *lnd.Client) *PayHandler {
 		return nil
 	}
 	return &PayHandler{
-		cfg: cfg,
-		lnd: lndClient,
+		cfg:    cfg,
+		lnd:    lndClient,
+		domain: cfg.Domain,
 	}
 }
 
 // HandleFirst handles the initial LNURL-pay request (GET /lnurl/pay).
 func (h *PayHandler) HandleFirst(w http.ResponseWriter, r *http.Request) {
-	host := requestHost(r)
 	metadata := h.metadata()
 
 	resp := map[string]interface{}{
-		"callback":    fmt.Sprintf("https://%s/lnurl/pay/invoice", host),
+		"callback":    fmt.Sprintf("https://%s/lnurl/pay/invoice", h.domain),
 		"minSendable": h.cfg.MinSendable,
 		"maxSendable": h.cfg.MaxSendable,
 		"metadata":    metadata,

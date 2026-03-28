@@ -39,19 +39,34 @@ func main() {
 
 	// Create handlers
 	payHandler := lnurl.NewPayHandler(cfg.Pay, lndClient)
+
+	var withdrawDomain string
+	if cfg.Withdraw != nil {
+		withdrawDomain = cfg.Withdraw.Domain
+	}
 	withdrawHandler := lnurl.NewWithdrawHandler(
 		cfg.ExpandVouchers(),
 		lndClient,
 		ntfy,
+		withdrawDomain,
 		"data/state.json",
 	)
 	addressHandler := lnurl.NewAddressHandler(cfg.Addresses, lndClient)
+
+	// Print unclaimed withdraw voucher URLs
+	if withdrawHandler != nil {
+		unclaimed := withdrawHandler.UnclaimedVouchers()
+		log.Printf("withdraw vouchers: %d unclaimed", len(unclaimed))
+		for _, v := range unclaimed {
+			log.Printf("  %s (%d sats) %s", v.ID, v.Amount/1000, v.URL)
+		}
+	}
 
 	// Start invoice subscriber in background
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go runInvoiceSubscriber(ctx, lndClient, ntfy, payHandler, addressHandler, cfg)
+	go runInvoiceSubscriber(ctx, lndClient, ntfy, payHandler, addressHandler)
 
 	// Start HTTP server
 	srv := server.New(cfg, payHandler, withdrawHandler, addressHandler)
@@ -71,12 +86,12 @@ func main() {
 	}
 }
 
-func runInvoiceSubscriber(ctx context.Context, lndClient *lnd.Client, ntfy *notifier.Ntfy, payHandler *lnurl.PayHandler, addressHandler *lnurl.AddressHandler, cfg *config.Config) {
+func runInvoiceSubscriber(ctx context.Context, lndClient *lnd.Client, ntfy *notifier.Ntfy, payHandler *lnurl.PayHandler, addressHandler *lnurl.AddressHandler) {
 	for {
 		log.Println("starting invoice subscriber...")
 		err := lndClient.SubscribeInvoices(ctx, func(amountMsat int64, descriptionHash []byte, memo string) {
 			amountSats := amountMsat / 1000
-			source := identifyPaymentSource(descriptionHash, payHandler, addressHandler, cfg)
+			source := identifyPaymentSource(descriptionHash, payHandler, addressHandler)
 			log.Printf("invoice settled: %d sats via %s", amountSats, source)
 			ntfy.NotifyPayment(amountSats, source)
 		})
@@ -88,7 +103,7 @@ func runInvoiceSubscriber(ctx context.Context, lndClient *lnd.Client, ntfy *noti
 	}
 }
 
-func identifyPaymentSource(descriptionHash []byte, payHandler *lnurl.PayHandler, addressHandler *lnurl.AddressHandler, cfg *config.Config) string {
+func identifyPaymentSource(descriptionHash []byte, payHandler *lnurl.PayHandler, addressHandler *lnurl.AddressHandler) string {
 	if len(descriptionHash) != 32 {
 		return "unknown"
 	}
@@ -103,13 +118,11 @@ func identifyPaymentSource(descriptionHash []byte, payHandler *lnurl.PayHandler,
 		}
 	}
 
-	// Check lightning addresses (for each allowed domain)
+	// Check lightning addresses
 	if addressHandler != nil {
-		for _, domain := range cfg.Server.AllowedDomains {
-			hashMap := addressHandler.MetadataHashForHost(domain)
-			if source, ok := hashMap[hash]; ok {
-				return source
-			}
+		hashMap := addressHandler.MetadataHashes()
+		if source, ok := hashMap[hash]; ok {
+			return source
 		}
 	}
 

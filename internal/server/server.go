@@ -58,11 +58,9 @@ func (s *Server) registerRoutes() {
 }
 
 // domainValidation is middleware that checks the Host header against allowed domains.
+// Allowed domains are derived from the per-section domain configs.
 func (s *Server) domainValidation(next http.Handler) http.Handler {
-	allowed := make(map[string]bool)
-	for _, d := range s.cfg.Server.AllowedDomains {
-		allowed[d] = true
-	}
+	allowed := s.cfg.AllowedDomains()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host := r.Host

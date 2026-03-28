@@ -13,18 +13,20 @@ import (
 
 // AddressHandler handles Lightning Address (LUD-16) requests.
 type AddressHandler struct {
-	addresses map[string]config.AddressConfig
+	addresses map[string]config.AddressEntry
 	lnd       *lnd.Client
+	domain    string
 }
 
 // NewAddressHandler creates a new AddressHandler. Returns nil if no addresses configured.
-func NewAddressHandler(addresses map[string]config.AddressConfig, lndClient *lnd.Client) *AddressHandler {
-	if len(addresses) == 0 {
+func NewAddressHandler(cfg *config.AddressSection, lndClient *lnd.Client) *AddressHandler {
+	if cfg == nil || len(cfg.Users) == 0 {
 		return nil
 	}
 	return &AddressHandler{
-		addresses: addresses,
+		addresses: cfg.Users,
 		lnd:       lndClient,
+		domain:    cfg.Domain,
 	}
 }
 
@@ -37,11 +39,10 @@ func (h *AddressHandler) HandleWellKnown(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	host := requestHost(r)
-	metadata := addressMetadata(addr.Description, username, host)
+	metadata := addressMetadata(addr.Description, username, h.domain)
 
 	resp := map[string]interface{}{
-		"callback":    fmt.Sprintf("https://%s/.well-known/lnurlp/%s/invoice", host, username),
+		"callback":    fmt.Sprintf("https://%s/.well-known/lnurlp/%s/invoice", h.domain, username),
 		"minSendable": addr.MinSendable,
 		"maxSendable": addr.MaxSendable,
 		"metadata":    metadata,
@@ -74,8 +75,7 @@ func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	host := requestHost(r)
-	metadata := addressMetadata(addr.Description, username, host)
+	metadata := addressMetadata(addr.Description, username, h.domain)
 	descHash := sha256.Sum256([]byte(metadata))
 
 	bolt11, err := h.lnd.AddInvoice(r.Context(), amountMsat, descHash[:])
@@ -92,13 +92,13 @@ func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
-// MetadataHashForHost returns a map of description hash -> "username@domain" for all addresses.
-func (h *AddressHandler) MetadataHashForHost(host string) map[[32]byte]string {
+// MetadataHashes returns a map of description hash -> "username@domain" for all addresses.
+func (h *AddressHandler) MetadataHashes() map[[32]byte]string {
 	result := make(map[[32]byte]string)
 	for username, addr := range h.addresses {
-		metadata := addressMetadata(addr.Description, username, host)
+		metadata := addressMetadata(addr.Description, username, h.domain)
 		hash := sha256.Sum256([]byte(metadata))
-		result[hash] = fmt.Sprintf("%s@%s", username, host)
+		result[hash] = fmt.Sprintf("%s@%s", username, h.domain)
 	}
 	return result
 }
