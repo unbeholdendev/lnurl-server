@@ -11,11 +11,10 @@ import (
 )
 
 type rateLimiter struct {
-	mu         sync.Mutex
-	limiters   map[string]*visitorLimiter
-	rate       rate.Limit
-	burst      int
-	trustProxy bool
+	mu       sync.Mutex
+	limiters map[string]*visitorLimiter
+	rate     rate.Limit
+	burst    int
 }
 
 type visitorLimiter struct {
@@ -23,12 +22,11 @@ type visitorLimiter struct {
 	lastSeen time.Time
 }
 
-func newRateLimiter(rps float64, burst int, trustProxy bool) *rateLimiter {
+func newRateLimiter(rps float64, burst int) *rateLimiter {
 	return &rateLimiter{
-		limiters:   make(map[string]*visitorLimiter),
-		rate:       rate.Limit(rps),
-		burst:      burst,
-		trustProxy: trustProxy,
+		limiters: make(map[string]*visitorLimiter),
+		rate:     rate.Limit(rps),
+		burst:    burst,
 	}
 }
 
@@ -68,7 +66,7 @@ func (rl *rateLimiter) getLimiter(ip string) *rate.Limiter {
 
 func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := clientIP(r, rl.trustProxy)
+		ip := clientIP(r)
 		limiter := rl.getLimiter(ip)
 		if !limiter.Allow() {
 			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
@@ -79,16 +77,13 @@ func (rl *rateLimiter) middleware(next http.Handler) http.Handler {
 }
 
 // clientIP extracts the client IP from the request.
-// When trustProxy is true and the server is behind a reverse proxy, it reads
-// X-Forwarded-For. When false, it uses RemoteAddr directly.
-func clientIP(r *http.Request, trustProxy bool) string {
-	if trustProxy {
-		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			if i := strings.IndexByte(xff, ','); i != -1 {
-				return strings.TrimSpace(xff[:i])
-			}
-			return strings.TrimSpace(xff)
+// Uses X-Forwarded-For if present (set by reverse proxy), otherwise RemoteAddr.
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if i := strings.IndexByte(xff, ','); i != -1 {
+			return strings.TrimSpace(xff[:i])
 		}
+		return strings.TrimSpace(xff)
 	}
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

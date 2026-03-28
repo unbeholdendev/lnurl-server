@@ -8,63 +8,12 @@ import (
 	"lnurl-server/internal/config"
 )
 
-func TestDomainValidation_TrustProxyFalse_IgnoresXForwardedHost(t *testing.T) {
+func TestDomainValidation_MatchingHostAllowed(t *testing.T) {
 	cfg := &config.Config{
 		LND: config.LNDConfig{Host: "localhost:10009", TLSCertPath: "/tmp/tls.cert", MacaroonPath: "/tmp/mac"},
 		Addresses: map[string]config.AddressEntry{
 			"test": {Domain: "pay.example.com", MinSendable: 1000, MaxSendable: 1000000, Description: "test"},
 		},
-		TrustProxy: false,
-	}
-
-	s := &Server{cfg: cfg, mux: http.NewServeMux()}
-	handler := s.domainValidation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	req := httptest.NewRequest("GET", "/health", nil)
-	req.Host = "pay.example.com"
-	req.Header.Set("X-Forwarded-Host", "evil.example.com")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected 200 (X-Forwarded-Host should be ignored), got %d", rec.Code)
-	}
-}
-
-func TestDomainValidation_TrustProxyTrue_UsesXForwardedHost(t *testing.T) {
-	cfg := &config.Config{
-		LND: config.LNDConfig{Host: "localhost:10009", TLSCertPath: "/tmp/tls.cert", MacaroonPath: "/tmp/mac"},
-		Addresses: map[string]config.AddressEntry{
-			"test": {Domain: "pay.example.com", MinSendable: 1000, MaxSendable: 1000000, Description: "test"},
-		},
-		TrustProxy: true,
-	}
-
-	s := &Server{cfg: cfg, mux: http.NewServeMux()}
-	handler := s.domainValidation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	req := httptest.NewRequest("GET", "/health", nil)
-	req.Host = "10.0.0.1:8080"
-	req.Header.Set("X-Forwarded-Host", "pay.example.com")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected 200 (X-Forwarded-Host should be trusted), got %d", rec.Code)
-	}
-}
-
-func TestDomainValidation_TrustProxyFalse_HostMatchWorks(t *testing.T) {
-	cfg := &config.Config{
-		LND: config.LNDConfig{Host: "localhost:10009", TLSCertPath: "/tmp/tls.cert", MacaroonPath: "/tmp/mac"},
-		Addresses: map[string]config.AddressEntry{
-			"test": {Domain: "pay.example.com", MinSendable: 1000, MaxSendable: 1000000, Description: "test"},
-		},
-		TrustProxy: false,
 	}
 
 	s := &Server{cfg: cfg, mux: http.NewServeMux()}
@@ -102,5 +51,30 @@ func TestDomainValidation_UnknownHostReturns404(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("expected 404 for unknown host, got %d", rec.Code)
+	}
+}
+
+func TestDomainValidation_XForwardedHostOverridesHost(t *testing.T) {
+	cfg := &config.Config{
+		LND: config.LNDConfig{Host: "localhost:10009", TLSCertPath: "/tmp/tls.cert", MacaroonPath: "/tmp/mac"},
+		Addresses: map[string]config.AddressEntry{
+			"test": {Domain: "pay.example.com", MinSendable: 1000, MaxSendable: 1000000, Description: "test"},
+		},
+	}
+
+	s := &Server{cfg: cfg, mux: http.NewServeMux()}
+	handler := s.domainValidation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Proxy forwards with internal Host but sets X-Forwarded-Host to the real domain
+	req := httptest.NewRequest("GET", "/health", nil)
+	req.Host = "10.0.0.1:8080"
+	req.Header.Set("X-Forwarded-Host", "pay.example.com")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 via X-Forwarded-Host, got %d", rec.Code)
 	}
 }

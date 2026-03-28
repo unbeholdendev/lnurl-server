@@ -13,7 +13,7 @@ func TestRequestLogging_LogsRequestDetails(t *testing.T) {
 	var buf bytes.Buffer
 	logger := log.New(&buf, "", 0)
 
-	handler := requestLogging(logger, false, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := requestLogging(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	}))
@@ -42,7 +42,7 @@ func TestRequestLogging_CapturesNon200Status(t *testing.T) {
 	var buf bytes.Buffer
 	logger := log.New(&buf, "", 0)
 
-	handler := requestLogging(logger, false, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := requestLogging(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 

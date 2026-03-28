@@ -10,11 +10,10 @@ import (
 )
 
 type Config struct {
-	LND        LNDConfig               `yaml:"lnd"`
-	Ntfy       *NtfyConfig             `yaml:"ntfy,omitempty"`
-	Withdraw   []WithdrawConfig        `yaml:"withdraw,omitempty"`
-	Addresses  map[string]AddressEntry `yaml:"addresses,omitempty"`
-	TrustProxy bool                    `yaml:"trust_proxy,omitempty"`
+	LND       LNDConfig               `yaml:"lnd"`
+	Ntfy      *NtfyConfig             `yaml:"ntfy,omitempty"`
+	Withdraw  []WithdrawConfig        `yaml:"withdraw,omitempty"`
+	Addresses map[string]AddressEntry `yaml:"addresses,omitempty"`
 }
 
 type LNDConfig struct {

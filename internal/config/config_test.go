@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestLoad_TrustProxyDefaults(t *testing.T) {
+func TestLoad_MinimalConfig(t *testing.T) {
 	yaml := `
 lnd:
   host: "localhost:10009"
@@ -18,26 +18,22 @@ lnd:
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	if cfg.TrustProxy {
-		t.Error("trust_proxy should default to false")
+	if cfg.LND.Host != "localhost:10009" {
+		t.Errorf("expected host localhost:10009, got %s", cfg.LND.Host)
 	}
 }
 
-func TestLoad_TrustProxyExplicit(t *testing.T) {
+func TestLoad_MissingRequiredFields(t *testing.T) {
 	yaml := `
 lnd:
-  host: "localhost:10009"
+  host: ""
   tls_cert_path: "/tmp/tls.cert"
   macaroon_path: "/tmp/admin.macaroon"
-trust_proxy: true
 `
 	path := writeTestConfig(t, yaml)
-	cfg, err := Load(path)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	if !cfg.TrustProxy {
-		t.Error("trust_proxy should be true when explicitly set")
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for empty lnd.host")
 	}
 }
 

@@ -27,7 +27,7 @@ type Server struct {
 // New creates a new Server with all routes registered.
 func New(cfg *config.Config, withdraw *lnurl.WithdrawHandler, address *lnurl.AddressHandler) *Server {
 	done := make(chan struct{})
-	rl := newRateLimiter(10, 20, cfg.TrustProxy) // 10 requests/sec per IP, burst of 20
+	rl := newRateLimiter(10, 20) // 10 requests/sec per IP, burst of 20
 	go rl.startCleanup(done)
 
 	s := &Server{
@@ -69,10 +69,8 @@ func (s *Server) domainValidation(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host := r.Host
-		if s.cfg.TrustProxy {
-			if fwd := r.Header.Get("X-Forwarded-Host"); fwd != "" {
-				host = fwd
-			}
+		if fwd := r.Header.Get("X-Forwarded-Host"); fwd != "" {
+			host = fwd
 		}
 		if !allowed[host] {
 			http.NotFound(w, r)
@@ -86,7 +84,7 @@ func (s *Server) domainValidation(next http.Handler) http.Handler {
 // by calling Shutdown.
 func (s *Server) ListenAndServe() error {
 	handler := s.domainValidation(s.mux)
-	handler = requestLogging(log.Default(), s.cfg.TrustProxy, handler)
+	handler = requestLogging(log.Default(), handler)
 	handler = s.rl.middleware(handler)
 
 	s.httpServer = &http.Server{
