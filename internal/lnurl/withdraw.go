@@ -16,6 +16,9 @@ import (
 	"lnurl-server/internal/config"
 	"lnurl-server/internal/lnd"
 	"lnurl-server/internal/notifier"
+
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/lightningnetwork/lnd/zpay32"
 )
 
 const k1TTL = 5 * time.Minute
@@ -165,6 +168,17 @@ func (h *WithdrawHandler) HandleClaim(w http.ResponseWriter, r *http.Request) {
 	delete(h.voucherToK1, id)
 	h.mu.Unlock()
 
+	// Validate the BOLT-11 invoice
+	if err := validateBolt11(pr, voucher.Amount); err != nil {
+		// Undo the claim — invoice was bad
+		h.mu.Lock()
+		delete(h.claimed, id)
+		h.mu.Unlock()
+		log.Printf("withdraw: invalid invoice for voucher %s: %v", id, err)
+		writeError(w, fmt.Sprintf("invalid invoice: %v", err))
+		return
+	}
+
 	// Pay the invoice (max fee: 1% of amount or 10 sats, whichever is higher)
 	maxFeeSat := max(voucher.Amount/100000, 10) // 1% in sats, minimum 10
 	_, err := h.lnd.SendPayment(r.Context(), pr, maxFeeSat)
@@ -190,6 +204,32 @@ func (h *WithdrawHandler) HandleClaim(w http.ResponseWriter, r *http.Request) {
 		"status": "OK",
 	}
 	writeJSON(w, resp)
+}
+
+// validateBolt11 decodes a BOLT-11 payment request and validates it against
+// the expected voucher amount. Returns an error if the invoice is invalid,
+// expired, or has a mismatched amount.
+func validateBolt11(payReq string, expectedAmountMsat int64) error {
+	invoice, err := zpay32.Decode(payReq, &chaincfg.MainNetParams)
+	if err != nil {
+		return fmt.Errorf("invalid invoice: %w", err)
+	}
+
+	// Check expiry
+	expiry := invoice.Expiry()
+	if time.Since(invoice.Timestamp) > expiry {
+		return fmt.Errorf("invoice has expired")
+	}
+
+	// Check amount if specified in the invoice
+	if invoice.MilliSat != nil {
+		invoiceAmountMsat := int64(*invoice.MilliSat)
+		if invoiceAmountMsat != expectedAmountMsat {
+			return fmt.Errorf("invoice amount %d msat does not match voucher amount %d msat", invoiceAmountMsat, expectedAmountMsat)
+		}
+	}
+
+	return nil
 }
 
 func (h *WithdrawHandler) addK1(voucherID string) string {

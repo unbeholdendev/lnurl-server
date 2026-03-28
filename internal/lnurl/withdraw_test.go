@@ -91,6 +91,27 @@ func TestK1Expiration(t *testing.T) {
 	}
 }
 
+func TestValidateBolt11_InvalidString(t *testing.T) {
+	err := validateBolt11("not-a-bolt11-invoice", 1000000)
+	if err == nil {
+		t.Fatal("expected error for invalid invoice string")
+	}
+}
+
+func TestValidateBolt11_MalformedPrefix(t *testing.T) {
+	err := validateBolt11("lnbc1invalid", 1000000)
+	if err == nil {
+		t.Fatal("expected error for malformed invoice")
+	}
+}
+
+func TestValidateBolt11_EmptyString(t *testing.T) {
+	err := validateBolt11("", 1000000)
+	if err == nil {
+		t.Fatal("expected error for empty invoice")
+	}
+}
+
 func TestK1PerVoucherEviction(t *testing.T) {
 	dir := t.TempDir()
 	statePath := filepath.Join(dir, "state.json")
