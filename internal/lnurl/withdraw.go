@@ -202,8 +202,13 @@ func (h *WithdrawHandler) loadState() error {
 
 func (h *WithdrawHandler) saveState() error {
 	h.mu.Lock()
-	state := stateFile{Claimed: h.claimed}
+	claimed := make(map[string]ClaimedInfo, len(h.claimed))
+	for k, v := range h.claimed {
+		claimed[k] = v
+	}
 	h.mu.Unlock()
+
+	state := stateFile{Claimed: claimed}
 
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
