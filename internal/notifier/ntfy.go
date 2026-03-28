@@ -33,12 +33,21 @@ func NewNtfy(cfg *config.NtfyConfig) *Ntfy {
 	}
 }
 
-// NotifyPayment sends a notification for a received payment.
-func (n *Ntfy) NotifyPayment(amountSats int64, source string) {
+// NotifyInvoiceCreated sends a notification when an invoice is created.
+func (n *Ntfy) NotifyInvoiceCreated(amountSats int64, address string) {
 	if n == nil {
 		return
 	}
-	body := fmt.Sprintf("Received %d sats via %s", amountSats, source)
+	body := fmt.Sprintf("Invoice created: %d sats for %s", amountSats, address)
+	n.send("Invoice created", body)
+}
+
+// NotifyPayment sends a notification for a settled payment.
+func (n *Ntfy) NotifyPayment(amountSats int64) {
+	if n == nil {
+		return
+	}
+	body := fmt.Sprintf("Received %d sats", amountSats)
 	n.send("Payment received", body)
 }
 

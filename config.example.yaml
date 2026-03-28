@@ -12,12 +12,6 @@ ntfy:
   topic: "lightning-payments"
   token: ""
 
-pay:
-  domain: "pay.yourdomain.com"
-  description: "Pay me via Lightning"
-  min_sendable: 1000
-  max_sendable: 1000000000
-
 withdraw:
   - id: "tip-001"
     domain: "tips.yourdomain.com"
@@ -36,6 +30,14 @@ withdraw:
     count: 20
 
 addresses:
+  # Wildcard: accepts any username (e.g., anything@pay.yourdomain.com)
+  "*":
+    domain: "pay.yourdomain.com"
+    description: "Lightning Address"
+    min_sendable: 1000
+    max_sendable: 1000000000
+
+  # Explicit entry takes priority over wildcard
   satoshi:
     domain: "pay.yourdomain.com"
     description: "Satoshi's Lightning Address"

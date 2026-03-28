@@ -9,29 +9,53 @@ import (
 
 	"lnurl-server/internal/config"
 	"lnurl-server/internal/lnd"
+	"lnurl-server/internal/notifier"
 )
 
 // AddressHandler handles Lightning Address (LUD-16) requests.
 type AddressHandler struct {
 	addresses map[string]config.AddressEntry
+	wildcard  *config.AddressEntry // catch-all for unknown usernames
 	lnd       *lnd.Client
+	ntfy      *notifier.Ntfy
 }
 
 // NewAddressHandler creates a new AddressHandler. Returns nil if no addresses configured.
-func NewAddressHandler(addresses map[string]config.AddressEntry, lndClient *lnd.Client) *AddressHandler {
+func NewAddressHandler(addresses map[string]config.AddressEntry, lndClient *lnd.Client, ntfy *notifier.Ntfy) *AddressHandler {
 	if len(addresses) == 0 {
 		return nil
 	}
-	return &AddressHandler{
+
+	h := &AddressHandler{
 		addresses: addresses,
 		lnd:       lndClient,
+		ntfy:      ntfy,
 	}
+
+	// Extract wildcard entry if present
+	if wc, ok := addresses["*"]; ok {
+		h.wildcard = &wc
+	}
+
+	return h
+}
+
+// resolveAddress looks up the address entry for a username.
+// Explicit entries take priority over the wildcard.
+func (h *AddressHandler) resolveAddress(username string) (config.AddressEntry, bool) {
+	if addr, ok := h.addresses[username]; ok && username != "*" {
+		return addr, true
+	}
+	if h.wildcard != nil {
+		return *h.wildcard, true
+	}
+	return config.AddressEntry{}, false
 }
 
 // HandleWellKnown handles GET /.well-known/lnurlp/{username}.
 func (h *AddressHandler) HandleWellKnown(w http.ResponseWriter, r *http.Request) {
 	username := r.PathValue("username")
-	addr, ok := h.addresses[username]
+	addr, ok := h.resolveAddress(username)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -52,7 +76,7 @@ func (h *AddressHandler) HandleWellKnown(w http.ResponseWriter, r *http.Request)
 // HandleInvoice handles GET /.well-known/lnurlp/{username}/invoice?amount=X.
 func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 	username := r.PathValue("username")
-	addr, ok := h.addresses[username]
+	addr, ok := h.resolveAddress(username)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -83,22 +107,16 @@ func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Notify on invoice creation
+	address := fmt.Sprintf("%s@%s", username, addr.Domain)
+	h.ntfy.NotifyInvoiceCreated(amountMsat/1000, address)
+	log.Printf("invoice created: %d sats for %s", amountMsat/1000, address)
+
 	resp := map[string]any{
 		"pr":     bolt11,
 		"routes": []any{},
 	}
 	writeJSON(w, resp)
-}
-
-// MetadataHashes returns a map of description hash -> "username@domain" for all addresses.
-func (h *AddressHandler) MetadataHashes() map[[32]byte]string {
-	result := make(map[[32]byte]string)
-	for username, addr := range h.addresses {
-		metadata := addressMetadata(addr.Description, username, addr.Domain)
-		hash := sha256.Sum256([]byte(metadata))
-		result[hash] = fmt.Sprintf("%s@%s", username, addr.Domain)
-	}
-	return result
 }
 
 func addressMetadata(description, username, host string) string {

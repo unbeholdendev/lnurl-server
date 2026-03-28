@@ -13,17 +13,15 @@ import (
 type Server struct {
 	cfg      *config.Config
 	mux      *http.ServeMux
-	pay      *lnurl.PayHandler
 	withdraw *lnurl.WithdrawHandler
 	address  *lnurl.AddressHandler
 }
 
 // New creates a new Server with all routes registered.
-func New(cfg *config.Config, pay *lnurl.PayHandler, withdraw *lnurl.WithdrawHandler, address *lnurl.AddressHandler) *Server {
+func New(cfg *config.Config, withdraw *lnurl.WithdrawHandler, address *lnurl.AddressHandler) *Server {
 	s := &Server{
 		cfg:      cfg,
 		mux:      http.NewServeMux(),
-		pay:      pay,
 		withdraw: withdraw,
 		address:  address,
 	}
@@ -32,12 +30,6 @@ func New(cfg *config.Config, pay *lnurl.PayHandler, withdraw *lnurl.WithdrawHand
 }
 
 func (s *Server) registerRoutes() {
-	// LNURL-pay
-	if s.pay != nil {
-		s.mux.HandleFunc("GET /lnurl/pay", s.pay.HandleFirst)
-		s.mux.HandleFunc("GET /lnurl/pay/invoice", s.pay.HandleInvoice)
-	}
-
 	// LNURL-withdraw
 	if s.withdraw != nil {
 		s.mux.HandleFunc("GET /lnurl/withdraw/{token}", s.withdraw.HandleFirst)

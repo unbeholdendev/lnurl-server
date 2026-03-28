@@ -38,14 +38,13 @@ func main() {
 	ntfy := notifier.NewNtfy(cfg.Ntfy)
 
 	// Create handlers
-	payHandler := lnurl.NewPayHandler(cfg.Pay, lndClient)
 	withdrawHandler := lnurl.NewWithdrawHandler(
 		cfg.ExpandVouchers(),
 		lndClient,
 		ntfy,
 		"data/state.json",
 	)
-	addressHandler := lnurl.NewAddressHandler(cfg.Addresses, lndClient)
+	addressHandler := lnurl.NewAddressHandler(cfg.Addresses, lndClient, ntfy)
 
 	// Print unclaimed withdraw voucher URLs
 	if withdrawHandler != nil {
@@ -60,10 +59,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go runInvoiceSubscriber(ctx, lndClient, ntfy, payHandler, addressHandler)
+	go runInvoiceSubscriber(ctx, lndClient, ntfy)
 
 	// Start HTTP server
-	srv := server.New(cfg, payHandler, withdrawHandler, addressHandler)
+	srv := server.New(cfg, withdrawHandler, addressHandler)
 
 	// Handle shutdown
 	go func() {
@@ -80,14 +79,13 @@ func main() {
 	}
 }
 
-func runInvoiceSubscriber(ctx context.Context, lndClient *lnd.Client, ntfy *notifier.Ntfy, payHandler *lnurl.PayHandler, addressHandler *lnurl.AddressHandler) {
+func runInvoiceSubscriber(ctx context.Context, lndClient *lnd.Client, ntfy *notifier.Ntfy) {
 	for {
 		log.Println("starting invoice subscriber...")
 		err := lndClient.SubscribeInvoices(ctx, func(amountMsat int64, descriptionHash []byte, memo string) {
 			amountSats := amountMsat / 1000
-			source := identifyPaymentSource(descriptionHash, payHandler, addressHandler)
-			log.Printf("invoice settled: %d sats via %s", amountSats, source)
-			ntfy.NotifyPayment(amountSats, source)
+			log.Printf("invoice settled: %d sats", amountSats)
+			ntfy.NotifyPayment(amountSats)
 		})
 
 		if ctx.Err() != nil {
@@ -95,30 +93,4 @@ func runInvoiceSubscriber(ctx context.Context, lndClient *lnd.Client, ntfy *noti
 		}
 		log.Printf("invoice subscriber disconnected: %v, reconnecting...", err)
 	}
-}
-
-func identifyPaymentSource(descriptionHash []byte, payHandler *lnurl.PayHandler, addressHandler *lnurl.AddressHandler) string {
-	if len(descriptionHash) != 32 {
-		return "unknown"
-	}
-
-	var hash [32]byte
-	copy(hash[:], descriptionHash)
-
-	// Check lnurl-pay
-	if payHandler != nil {
-		if hash == payHandler.MetadataHash() {
-			return "lnurl-pay"
-		}
-	}
-
-	// Check lightning addresses
-	if addressHandler != nil {
-		hashMap := addressHandler.MetadataHashes()
-		if source, ok := hashMap[hash]; ok {
-			return source
-		}
-	}
-
-	return "unknown"
 }

@@ -13,7 +13,6 @@ type Config struct {
 	Server    ServerConfig            `yaml:"server"`
 	LND       LNDConfig               `yaml:"lnd"`
 	Ntfy      *NtfyConfig             `yaml:"ntfy,omitempty"`
-	Pay       *PayConfig              `yaml:"pay,omitempty"`
 	Withdraw  []WithdrawConfig        `yaml:"withdraw,omitempty"`
 	Addresses map[string]AddressEntry `yaml:"addresses,omitempty"`
 }
@@ -33,13 +32,6 @@ type NtfyConfig struct {
 	URL   string `yaml:"url"`
 	Topic string `yaml:"topic"`
 	Token string `yaml:"token,omitempty"`
-}
-
-type PayConfig struct {
-	Domain      string `yaml:"domain"`
-	Description string `yaml:"description"`
-	MinSendable int64  `yaml:"min_sendable"`
-	MaxSendable int64  `yaml:"max_sendable"`
 }
 
 type WithdrawConfig struct {
@@ -94,9 +86,6 @@ func Load(path string) (*Config, error) {
 // AllowedDomains returns the set of all configured domains across sections.
 func (c *Config) AllowedDomains() map[string]bool {
 	domains := make(map[string]bool)
-	if c.Pay != nil {
-		domains[c.Pay.Domain] = true
-	}
 	for _, w := range c.Withdraw {
 		domains[w.Domain] = true
 	}
@@ -118,20 +107,6 @@ func (c *Config) Validate() error {
 	}
 	if c.LND.MacaroonPath == "" {
 		return fmt.Errorf("lnd.macaroon_path is required")
-	}
-	if c.Pay != nil {
-		if c.Pay.Domain == "" {
-			return fmt.Errorf("pay.domain is required")
-		}
-		if c.Pay.MinSendable <= 0 {
-			return fmt.Errorf("pay.min_sendable must be positive")
-		}
-		if c.Pay.MaxSendable <= 0 {
-			return fmt.Errorf("pay.max_sendable must be positive")
-		}
-		if c.Pay.MinSendable > c.Pay.MaxSendable {
-			return fmt.Errorf("pay.min_sendable must be <= pay.max_sendable")
-		}
 	}
 	for i, w := range c.Withdraw {
 		if w.Domain == "" {
