@@ -27,7 +27,7 @@ type Server struct {
 // New creates a new Server with all routes registered.
 func New(cfg *config.Config, withdraw *lnurl.WithdrawHandler, address *lnurl.AddressHandler) *Server {
 	done := make(chan struct{})
-	rl := newRateLimiter(10, 20) // 10 requests/sec per IP, burst of 20
+	rl := newRateLimiter(10.0/60.0, 10) // 10 requests/min per IP
 	go rl.startCleanup(done)
 
 	s := &Server{

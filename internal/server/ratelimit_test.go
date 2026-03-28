@@ -7,7 +7,7 @@ import (
 )
 
 func TestRateLimiter_AllowsNormalTraffic(t *testing.T) {
-	rl := newRateLimiter(10, 20) // 10 req/s, burst 20
+	rl := newRateLimiter(10.0/60.0, 10) // 10 req/min, burst 10
 	handler := rl.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
