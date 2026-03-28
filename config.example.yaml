@@ -1,0 +1,40 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  allowed_domains:
+    - "pay.yourdomain.com"
+
+lnd:
+  host: "lnd:10009"
+  tls_cert_path: "/certs/tls.cert"
+  macaroon_path: "/macaroons/admin.macaroon"
+
+ntfy:
+  url: "https://ntfy.yourdomain.com"
+  topic: "lightning-payments"
+  token: ""
+
+pay:
+  description: "Pay me via Lightning"
+  min_sendable: 1000
+  max_sendable: 1000000000
+
+withdraw:
+  - id: "tip-001"
+    description: "Restaurant tip"
+    amount: 500000
+
+  - id: "tip-002"
+    description: "Restaurant tip"
+    amount: 500000
+
+  - prefix: "tip-batch"
+    description: "Restaurant tip"
+    amount: 500000
+    count: 20
+
+addresses:
+  satoshi:
+    description: "Satoshi's Lightning Address"
+    min_sendable: 1000
+    max_sendable: 1000000000
