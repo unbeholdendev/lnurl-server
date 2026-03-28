@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -304,9 +305,7 @@ func (h *WithdrawHandler) loadState() error {
 func (h *WithdrawHandler) saveState() error {
 	h.mu.Lock()
 	claimed := make(map[string]ClaimedInfo, len(h.claimed))
-	for k, v := range h.claimed {
-		claimed[k] = v
-	}
+	maps.Copy(claimed, h.claimed)
 	h.mu.Unlock()
 
 	state := stateFile{Claimed: claimed}
