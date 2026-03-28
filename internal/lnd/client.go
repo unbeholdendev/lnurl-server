@@ -44,14 +44,14 @@ func Connect(host, tlsCertPath, macaroonPath string) (*Client, error) {
 		return nil, fmt.Errorf("unmarshal macaroon: %w", err)
 	}
 
-	// Dial
+	// Connect
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(tlsCreds),
 		grpc.WithPerRPCCredentials(&macaroonCredential{mac: mac}),
 	}
-	conn, err := grpc.Dial(host, opts...)
+	conn, err := grpc.NewClient("passthrough:///"+host, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("dial lnd: %w", err)
+		return nil, fmt.Errorf("connect to lnd: %w", err)
 	}
 
 	return &Client{
