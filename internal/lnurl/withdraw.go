@@ -20,6 +20,7 @@ import (
 // WithdrawHandler handles LNURL-withdraw protocol requests.
 type WithdrawHandler struct {
 	vouchers  map[string]config.Voucher // id -> voucher
+	tokenToID map[string]string         // token -> id (for URL lookup)
 	lnd       *lnd.Client
 	ntfy      *notifier.Ntfy
 	statePath string
@@ -46,12 +47,15 @@ func NewWithdrawHandler(vouchers []config.Voucher, lndClient *lnd.Client, ntfy *
 	}
 
 	voucherMap := make(map[string]config.Voucher)
+	tokenToID := make(map[string]string)
 	for _, v := range vouchers {
 		voucherMap[v.ID] = v
+		tokenToID[v.Token] = v.ID
 	}
 
 	h := &WithdrawHandler{
 		vouchers:  voucherMap,
+		tokenToID: tokenToID,
 		lnd:       lndClient,
 		ntfy:      ntfy,
 		statePath: statePath,
@@ -66,14 +70,15 @@ func NewWithdrawHandler(vouchers []config.Voucher, lndClient *lnd.Client, ntfy *
 	return h
 }
 
-// HandleFirst handles GET /lnurl/withdraw/{id}.
+// HandleFirst handles GET /lnurl/withdraw/{token}.
 func (h *WithdrawHandler) HandleFirst(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	voucher, ok := h.vouchers[id]
+	token := r.PathValue("token")
+	id, ok := h.tokenToID[token]
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
+	voucher := h.vouchers[id]
 
 	h.mu.Lock()
 	_, alreadyClaimed := h.claimed[id]
@@ -99,7 +104,7 @@ func (h *WithdrawHandler) HandleFirst(w http.ResponseWriter, r *http.Request) {
 
 	host := requestHost(r)
 	resp := map[string]interface{}{
-		"callback":           fmt.Sprintf("https://%s/lnurl/withdraw/%s/claim", host, id),
+		"callback":           fmt.Sprintf("https://%s/lnurl/withdraw/%s/claim", host, token),
 		"k1":                 k1,
 		"minWithdrawable":    voucher.Amount,
 		"maxWithdrawable":    voucher.Amount,
@@ -109,9 +114,9 @@ func (h *WithdrawHandler) HandleFirst(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
-// HandleClaim handles GET /lnurl/withdraw/{id}/claim?k1=X&pr=X.
+// HandleClaim handles GET /lnurl/withdraw/{token}/claim?k1=X&pr=X.
 func (h *WithdrawHandler) HandleClaim(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	token := r.PathValue("token")
 	k1 := r.URL.Query().Get("k1")
 	pr := r.URL.Query().Get("pr")
 
@@ -120,11 +125,12 @@ func (h *WithdrawHandler) HandleClaim(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	voucher, ok := h.vouchers[id]
+	id, ok := h.tokenToID[token]
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
+	voucher := h.vouchers[id]
 
 	h.mu.Lock()
 	// Validate k1

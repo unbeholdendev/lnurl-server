@@ -40,8 +40,8 @@ func (s *Server) registerRoutes() {
 
 	// LNURL-withdraw
 	if s.withdraw != nil {
-		s.mux.HandleFunc("GET /lnurl/withdraw/{id}", s.withdraw.HandleFirst)
-		s.mux.HandleFunc("GET /lnurl/withdraw/{id}/claim", s.withdraw.HandleClaim)
+		s.mux.HandleFunc("GET /lnurl/withdraw/{token}", s.withdraw.HandleFirst)
+		s.mux.HandleFunc("GET /lnurl/withdraw/{token}/claim", s.withdraw.HandleClaim)
 	}
 
 	// Lightning Address

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 
@@ -60,8 +62,15 @@ type AddressConfig struct {
 // Voucher is an expanded single withdraw voucher (after batch expansion).
 type Voucher struct {
 	ID          string
+	Token       string // URL-safe opaque token derived from ID
 	Description string
 	Amount      int64 // millisatoshis
+}
+
+// tokenForVoucher generates a deterministic, unguessable URL token from a voucher ID.
+func tokenForVoucher(id string) string {
+	hash := sha256.Sum256([]byte(id))
+	return hex.EncodeToString(hash[:16]) // 32 hex chars, 128 bits
 }
 
 func Load(path string) (*Config, error) {
@@ -141,13 +150,16 @@ func (c *Config) ExpandVouchers() []Voucher {
 		if w.ID != "" {
 			vouchers = append(vouchers, Voucher{
 				ID:          w.ID,
+				Token:       tokenForVoucher(w.ID),
 				Description: w.Description,
 				Amount:      w.Amount,
 			})
 		} else if w.Prefix != "" {
 			for i := 1; i <= w.Count; i++ {
+				id := fmt.Sprintf("%s-%03d", w.Prefix, i)
 				vouchers = append(vouchers, Voucher{
-					ID:          fmt.Sprintf("%s-%03d", w.Prefix, i),
+					ID:          id,
+					Token:       tokenForVoucher(id),
 					Description: w.Description,
 					Amount:      w.Amount,
 				})
