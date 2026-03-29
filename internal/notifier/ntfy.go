@@ -34,11 +34,14 @@ func NewNtfy(cfg *config.NtfyConfig) *Ntfy {
 }
 
 // NotifyInvoiceCreated sends a notification when an invoice is created.
-func (n *Ntfy) NotifyInvoiceCreated(amountSats int64, address string) {
+func (n *Ntfy) NotifyInvoiceCreated(amountSats int64, address string, comment string) {
 	if n == nil {
 		return
 	}
 	body := fmt.Sprintf("Invoice created: %d sats for %s", amountSats, address)
+	if comment != "" {
+		body = fmt.Sprintf("Invoice created: %d sats for %s: %s", amountSats, address, comment)
+	}
 	n.send("Invoice created", body)
 }
 

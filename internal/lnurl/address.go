@@ -65,11 +65,12 @@ func (h *AddressHandler) HandleWellKnown(w http.ResponseWriter, r *http.Request)
 	metadata := addressMetadata(addr.Description, username, addr.Domain)
 
 	resp := map[string]any{
-		"callback":    fmt.Sprintf("https://%s/.well-known/lnurlp/%s/invoice", addr.Domain, username),
-		"minSendable": addr.MinSendable,
-		"maxSendable": addr.MaxSendable,
-		"metadata":    metadata,
-		"tag":         "payRequest",
+		"callback":       fmt.Sprintf("https://%s/.well-known/lnurlp/%s/invoice", addr.Domain, username),
+		"minSendable":    addr.MinSendable,
+		"maxSendable":    addr.MaxSendable,
+		"metadata":       metadata,
+		"commentAllowed": 140,
+		"tag":            "payRequest",
 	}
 	writeJSON(w, resp)
 }
@@ -98,10 +99,17 @@ func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Read optional sender comment (LUD-12)
+	comment := r.URL.Query().Get("comment")
+	if len(comment) > 140 {
+		writeError(w, "comment too long (max 140 characters)")
+		return
+	}
+
 	metadata := addressMetadata(addr.Description, username, addr.Domain)
 	descHash := sha256.Sum256([]byte(metadata))
 
-	bolt11, err := h.lnd.AddInvoice(r.Context(), amountMsat, descHash[:])
+	bolt11, err := h.lnd.AddInvoice(r.Context(), amountMsat, descHash[:], comment)
 	if err != nil {
 		log.Printf("lightning-address: add invoice failed for %s: %v", username, err)
 		writeError(w, "failed to create invoice")
@@ -110,7 +118,7 @@ func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 
 	// Notify on invoice creation
 	address := fmt.Sprintf("%s@%s", username, addr.Domain)
-	h.ntfy.NotifyInvoiceCreated(amountMsat/1000, address)
+	h.ntfy.NotifyInvoiceCreated(amountMsat/1000, address, comment)
 	log.Printf("invoice created: %d sats for %s", amountMsat/1000, address)
 
 	resp := map[string]any{

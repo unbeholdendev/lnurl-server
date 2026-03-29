@@ -74,10 +74,12 @@ func (c *Client) Close() error {
 // AddInvoice creates a new invoice on LND.
 // amountMsat is the invoice amount in millisatoshis.
 // descriptionHash is the SHA256 hash of the LNURL metadata string (32 bytes).
-func (c *Client) AddInvoice(ctx context.Context, amountMsat int64, descriptionHash []byte) (string, error) {
+// memo is an optional human-readable description stored on the invoice.
+func (c *Client) AddInvoice(ctx context.Context, amountMsat int64, descriptionHash []byte, memo string) (string, error) {
 	resp, err := c.lightning.AddInvoice(ctx, &lnrpc.Invoice{
 		ValueMsat:       amountMsat,
 		DescriptionHash: descriptionHash,
+		Memo:            memo,
 	})
 	if err != nil {
 		return "", fmt.Errorf("add invoice: %w", err)
