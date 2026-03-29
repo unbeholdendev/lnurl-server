@@ -335,10 +335,13 @@ func (h *WithdrawHandler) UnclaimedVouchers() []VoucherStatus {
 	var result []VoucherStatus
 	for _, v := range h.allVouchers {
 		if _, claimed := h.claimed[v.ID]; !claimed {
+			url := fmt.Sprintf("https://%s/lnurl/withdraw/%s", v.Domain, v.Token)
+			lnurl, _ := LNURLEncode(url)
 			result = append(result, VoucherStatus{
 				ID:     v.ID,
 				Amount: v.Amount,
-				URL:    fmt.Sprintf("https://%s/lnurl/withdraw/%s", v.Domain, v.Token),
+				URL:    url,
+				LNURL:  lnurl,
 			})
 		}
 	}
@@ -350,4 +353,5 @@ type VoucherStatus struct {
 	ID     string
 	Amount int64
 	URL    string
+	LNURL  string // bech32-encoded lnurl
 }

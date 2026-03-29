@@ -63,6 +63,7 @@ func main() {
 		log.Printf("withdraw vouchers: %d unclaimed", len(unclaimed))
 		for _, v := range unclaimed {
 			log.Printf("  %s (%d sats) %s", v.ID, v.Amount/1000, v.URL)
+			log.Printf("    %s", v.LNURL)
 		}
 	}
 
