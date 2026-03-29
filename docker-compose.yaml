@@ -1,6 +1,6 @@
 services:
   lnurl-server:
-    build: .
+    image: ghcr.io/pycanis/lnurl-server:latest
     ports:
       - "8080:8080"
     volumes:
