@@ -9,7 +9,7 @@ services:
       - ./docker-data/tls.cert:/certs/tls.cert:ro
       - ./docker-data/admin.macaroon:/macaroons/admin.macaroon:ro
     healthcheck:
-      test: ["/app/lnurl-server", "-healthcheck"]
+      test: ["CMD", "/app/lnurl-server", "-healthcheck"]
       interval: 30s
       timeout: 5s
       start_period: 10s
