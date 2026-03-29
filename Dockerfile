@@ -20,8 +20,5 @@ COPY --from=builder /build/lnurl-server /app/lnurl-server
 
 USER nonroot:nonroot
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["/app/lnurl-server", "-healthcheck"]
-
 ENTRYPOINT ["/app/lnurl-server"]
 CMD ["-config", "/app/config.yaml"]
