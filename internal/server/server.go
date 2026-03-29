@@ -62,32 +62,10 @@ func (s *Server) registerRoutes() {
 	})
 }
 
-// domainValidation is middleware that checks the Host header against allowed domains.
-// Allowed domains are derived from the per-section domain configs.
-func (s *Server) domainValidation(next http.Handler) http.Handler {
-	allowed := s.cfg.AllowedDomains()
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" {
-			next.ServeHTTP(w, r)
-			return
-		}
-		host := r.Host
-		if fwd := r.Header.Get("X-Forwarded-Host"); fwd != "" {
-			host = fwd
-		}
-		if !allowed[host] {
-			http.NotFound(w, r)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 // ListenAndServe starts the HTTP server. The server can be stopped
 // by calling Shutdown.
 func (s *Server) ListenAndServe() error {
-	handler := s.domainValidation(s.mux)
+	var handler http.Handler = s.mux
 	handler = requestLogging(log.Default(), handler)
 	handler = s.rl.middleware(handler)
 

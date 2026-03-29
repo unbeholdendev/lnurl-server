@@ -75,18 +75,6 @@ func Load(path string) (*Config, error) {
 	return &cfg, nil
 }
 
-// AllowedDomains returns the set of all configured domains across sections.
-func (c *Config) AllowedDomains() map[string]bool {
-	domains := make(map[string]bool)
-	for _, w := range c.Withdraw {
-		domains[w.Domain] = true
-	}
-	for _, addr := range c.Addresses {
-		domains[addr.Domain] = true
-	}
-	return domains
-}
-
 func (c *Config) Validate() error {
 	if c.LND.Host == "" {
 		return fmt.Errorf("lnd.host is required")
