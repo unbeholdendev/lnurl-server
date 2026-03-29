@@ -68,6 +68,10 @@ func (s *Server) domainValidation(next http.Handler) http.Handler {
 	allowed := s.cfg.AllowedDomains()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		host := r.Host
 		if fwd := r.Header.Get("X-Forwarded-Host"); fwd != "" {
 			host = fwd

@@ -44,7 +44,7 @@ func TestDomainValidation_UnknownHostReturns404(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/some-path", nil)
 	req.Host = "unknown.example.com"
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
