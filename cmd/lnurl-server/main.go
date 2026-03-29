@@ -19,7 +19,16 @@ import (
 
 func main() {
 	configPath := flag.String("config", "config.yaml", "path to config file")
+	healthcheck := flag.Bool("healthcheck", false, "run health check and exit")
 	flag.Parse()
+
+	if *healthcheck {
+		resp, err := http.Get("http://localhost:8080/health")
+		if err != nil || resp.StatusCode != http.StatusOK {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 
 	// Load config
 	cfg, err := config.Load(*configPath)
