@@ -39,7 +39,6 @@ type WithdrawConfig struct {
 }
 
 type AddressEntry struct {
-	Domain      string `yaml:"domain"`
 	Description string `yaml:"description"`
 	MinSendable int64  `yaml:"min_sendable"`
 	MaxSendable int64  `yaml:"max_sendable"`
@@ -97,9 +96,6 @@ func (c *Config) Validate() error {
 		}
 	}
 	for name, addr := range c.Addresses {
-		if addr.Domain == "" {
-			return fmt.Errorf("addresses.%s.domain is required", name)
-		}
 		if addr.MinSendable <= 0 {
 			return fmt.Errorf("addresses.%s.min_sendable must be positive", name)
 		}

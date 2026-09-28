@@ -62,10 +62,10 @@ func (h *AddressHandler) HandleWellKnown(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	metadata := addressMetadata(addr.Description, username, addr.Domain)
+	metadata := addressMetadata(addr.Description, username, r.Host)
 
 	resp := map[string]any{
-		"callback":       fmt.Sprintf("https://%s/.well-known/lnurlp/%s/invoice", addr.Domain, username),
+		"callback":       fmt.Sprintf("https://%s/.well-known/lnurlp/%s/invoice", r.Host, username),
 		"minSendable":    addr.MinSendable,
 		"maxSendable":    addr.MaxSendable,
 		"metadata":       metadata,
@@ -106,7 +106,7 @@ func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata := addressMetadata(addr.Description, username, addr.Domain)
+	metadata := addressMetadata(addr.Description, username, r.Host)
 	descHash := sha256.Sum256([]byte(metadata))
 
 	bolt11, err := h.lnd.AddInvoice(r.Context(), amountMsat, descHash[:], comment)
@@ -117,7 +117,7 @@ func (h *AddressHandler) HandleInvoice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Notify on invoice creation
-	address := fmt.Sprintf("%s@%s", username, addr.Domain)
+	address := fmt.Sprintf("%s@%s", username, r.Host)
 	h.ntfy.NotifyInvoiceCreated(amountMsat/1000, address, comment)
 	log.Printf("invoice created: %d sats for %s", amountMsat/1000, address)
 
