@@ -29,3 +29,12 @@ func LNURLEncode(url string) (string, error) {
 	}
 	return strings.ToUpper(s), nil
 }
+
+// publicHost is the domain the payer used. Apps that proxy with their own
+// HTTP client can't keep Host, so they send it as X-Forwarded-Host.
+func publicHost(r *http.Request) string {
+	if h := r.Header.Get("X-Forwarded-Host"); h != "" {
+		return h
+	}
+	return r.Host
+}

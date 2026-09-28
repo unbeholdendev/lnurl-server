@@ -88,3 +88,23 @@ func TestHandleWellKnown_DomainFromHost(t *testing.T) {
 		t.Errorf("metadata = %v", resp["metadata"])
 	}
 }
+
+func TestHandleWellKnown_ForwardedHost(t *testing.T) {
+	h := NewAddressHandler(map[string]config.AddressEntry{
+		"*": {Description: "any", MinSendable: 1000, MaxSendable: 2000},
+	}, nil, nil)
+
+	req := httptest.NewRequest("GET", "http://192.168.4.12:7233/.well-known/lnurlp/bob", nil)
+	req.Header.Set("X-Forwarded-Host", "shop.example.com")
+	req.SetPathValue("username", "bob")
+	rec := httptest.NewRecorder()
+	h.HandleWellKnown(rec, req)
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if want := "https://shop.example.com/.well-known/lnurlp/bob/invoice"; resp["callback"] != want {
+		t.Errorf("callback = %v, want %s", resp["callback"], want)
+	}
+}

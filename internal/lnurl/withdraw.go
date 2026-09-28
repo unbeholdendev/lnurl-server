@@ -109,7 +109,7 @@ func (h *WithdrawHandler) HandleFirst(w http.ResponseWriter, r *http.Request) {
 	k1 := h.addK1(id)
 
 	resp := map[string]any{
-		"callback":           fmt.Sprintf("https://%s/lnurl/withdraw/%s/claim", r.Host, token),
+		"callback":           fmt.Sprintf("https://%s/lnurl/withdraw/%s/claim", publicHost(r), token),
 		"k1":                 k1,
 		"minWithdrawable":    voucher.Amount,
 		"maxWithdrawable":    voucher.Amount,
