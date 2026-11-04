@@ -1,0 +1,4 @@
+{
+  "name": "lnurl-server",
+  "image": "golang:1.25-bookworm"
+}
